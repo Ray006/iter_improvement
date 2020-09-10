@@ -93,10 +93,12 @@ class ker_learning:
             param[0][7] = param[0][4]-param[0][1]
             param[0][8] = param[0][5]-param[0][2]
 
+            # set_trace()
             # sym_obj_rot_euler
             theta_a = param[0][11:14]
             param[0][11:14] = self.orientation_mat_symmetric_with_rot_plane(theta_a, rot_z_theta, inv_rot_z_theta, i)
-            
+
+            # set_trace()
             # get the obj real velp 
             v_l_a = param[0][14:17]+param[0][20:23]
             # get the sym obj real velp
@@ -160,6 +162,18 @@ class ker_learning:
 
         # Rot matrix to euler for return
         s_v_r_a = r_tool.mat2euler(s_v_r_a)
+
+
+        #another method --- by ray
+        z_theta = r_tool.mat2euler(rot_z_theta)
+        inv_z_theta = -z_theta
+        theta_a = theta_a-z_theta
+
+        theta_a[0-i]=-theta_a[0-i]
+        theta_a[2] = -theta_a[2]
+
+        theta_a = theta_a-inv_z_theta
+
         return s_v_r_a.copy()
 
     def kaleidoscope_obj():
@@ -180,6 +194,7 @@ class ker_learning:
         if sym_method == 'y_ker':
             self.sym_plane = SYM_PLANE_Y
         elif sym_method == 'x_ker':
+
             self.sym_plane = SYM_PLANE_X
         # elif sym_method == 'kaleidoscope_robot':
         #     SYM_PLANE = SYM_PLANE_Y
@@ -286,6 +301,8 @@ class ker_learning:
                     s_achieved_goals.append(s_achieved_goal.copy())
 
                 ka_episodes_tem.append([s_obs, s_acts, s_goals, s_achieved_goals])
+
+
         for ka_episode in ka_episodes_tem:
             ka_episodes_set.append(ka_episode)
         # ---------------------------end
@@ -298,9 +315,11 @@ class ker_learning:
             y_acts = []
             y_achieved_goals = []
             for goal in o_goals:
+                # set_trace()
                 y_goal = self.y_ker(goal.copy())
                 y_goals.append(y_goal.copy())
 
+            # set_trace()
             for ob in o_obs:
                 y_ob = self.y_ker(ob.copy())
                 y_obs.append(y_ob.copy())

@@ -58,9 +58,7 @@ class RolloutWorker:
 
     def generate_rollouts(self,terminate_ker=False):
         # if self.n_ker and terminate_ker==False:
-
-        # set_trace()
-
+        
         if self.n_ker:
             return self.generate_rollouts_ker()
         else :
@@ -135,6 +133,7 @@ class RolloutWorker:
         obs.append(o.copy())
         achieved_goals.append(ag.copy())
 
+
         episode = dict(o=obs,
                        u=acts,
                        g=goals,
@@ -174,7 +173,9 @@ class RolloutWorker:
         info_values = [np.empty((self.T - 1, self.rollout_batch_size, self.dims['info_' + key]), np.float32) for key in self.info_keys]
         Qs = []
 
+        # set_trace()
         for t in range(self.T):
+
             policy_output = self.policy.get_actions(
                 o, ag, self.g,
                 compute_Q=self.compute_Q,
@@ -191,7 +192,8 @@ class RolloutWorker:
             if u.ndim == 1:
                 # The non-batched case should still have a reasonable shape.
                 u = u.reshape(1, -1)
-
+            # if t==49:
+            #     set_trace()
             o_new = np.empty((self.rollout_batch_size, self.dims['o']))
             ag_new = np.empty((self.rollout_batch_size, self.dims['g']))
             success = np.zeros(self.rollout_batch_size)
@@ -230,6 +232,7 @@ class RolloutWorker:
         obs.append(o.copy())
         achieved_goals.append(ag.copy())
 
+
         # ----------------Kaleidoscope ER--------------------------- 
         original_ka_episodes = self.ker.ker_process(obs,acts,goals,achieved_goals)
         # ----------------end---------------------------
@@ -257,6 +260,7 @@ class RolloutWorker:
 
         mul_factor = 1
         self.n_episodes += (mul_factor* self.rollout_batch_size)
+        # set_trace()
 
         # ----------------format processing---------------------------
         # return dict: ['o', 'u', 'g', 'ag', 'info_is_success']
