@@ -13,8 +13,7 @@ from baselines.common.cmd_util import common_arg_parser, parse_unknown_args, mak
 from baselines.common.tf_util import get_session
 from baselines import logger
 from importlib import import_module
-import datetime
-import os
+
 try:
     from mpi4py import MPI
 except ImportError:
@@ -78,10 +77,6 @@ def train(args, extra_args):
         env=env,
         seed=seed,
         total_timesteps=total_timesteps,
-        save_path = args.save_path,
-        n_ker = args.n_ker,
-        before_GER_minibatch_size = args.before_GER_minibatch_size,
-        n_GER = args.n_GER,
         **alg_kwargs
     )
 
@@ -210,16 +205,6 @@ def main(args):
     arg_parser = common_arg_parser()
     args, unknown_args = arg_parser.parse_known_args(args)
     extra_args = parse_cmdline_kwargs(unknown_args)
-    if args.log_path is not None:
-        # =========modifiy the log path with time=============
-        time = datetime.datetime.now().strftime('%y_%a_%b_%d_%H:%M:%S:%f')
-        args.log_path = os.path.join(args.log_path,time)
-        # =====================================================
-    if args.save_path is not None:
-        # =========modifiy the save path with time=============
-        time = datetime.datetime.now().strftime('%y_%a_%b_%d_%H:%M:%S:%f')
-        args.save_path = os.path.join(args.save_path,time)
-        # =====================================================
 
     if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
         rank = 0
@@ -232,10 +217,6 @@ def main(args):
 
     if args.save_path is not None and rank == 0:
         save_path = osp.expanduser(args.save_path)
-
-        # =========modifiy the save path with time=============
-        # save_path_custom = os.path.join(save_path,time)
-        # =====================================================
         model.save(save_path)
 
     if args.play:
