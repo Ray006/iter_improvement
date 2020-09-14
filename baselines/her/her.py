@@ -64,6 +64,7 @@ def train(*, policy, rollout_worker, evaluator,
         rollout_worker.clear_history()
         for _ in range(n_cycles):
             # generate episodes
+            # print('epoch, cycles:', epoch, _)
             episodes = rollout_worker.generate_rollouts(terminate_ker=terminate_ker_now)
             # with KER
             # if (n_ker_number !=0) and terminate_ker_now==False:
@@ -75,7 +76,10 @@ def train(*, policy, rollout_worker, evaluator,
                 policy.store_episode(episodes)
                 # HER/DDPG do not need clear buffer
                 if_clear_buffer = False
-            
+
+            # set_trace()
+            n_batches = 80
+
             for _ in range(n_batches):
                 policy.train()
             policy.update_target_net()

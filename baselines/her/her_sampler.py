@@ -24,6 +24,8 @@ def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
         rollout_batch_size = episode_batch['u'].shape[0]
         # batch_size = 256
 
+        # set_trace()
+
         batch_size = batch_size_in_transitions
 
         # Select which episodes and time steps to use.

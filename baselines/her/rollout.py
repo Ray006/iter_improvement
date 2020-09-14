@@ -49,6 +49,7 @@ class RolloutWorker:
         self.n_ker = n_ker
         self.ker = ker_learning(env_name,n_ker)
 
+        self.count_ray = 0
 
     def reset_all_rollouts(self):
         self.obs_dict = self.venv.reset()
@@ -229,22 +230,56 @@ class RolloutWorker:
 
         obs.append(o.copy())
         achieved_goals.append(ag.copy())
+        # # ----------------Kaleidoscope ER---------------------------
+        # original_ka_episodes = self.ker.ker_process(obs,acts,goals,achieved_goals)
+        # # ----------------end---------------------------
+        # # ----------------pack up as transition---------------------------
+        # for (obs,acts,goals,achieved_goals) in original_ka_episodes:
+        #     episode = dict(o=obs,
+        #                 u=acts,
+        #                 g=goals,
+        #                 ag=achieved_goals)
+        #     for key, value in zip(self.info_keys, info_values):
+        #         episode['info_{}'.format(key)] = value
+        #     episodes.append(episode)
+        # # ----------------end---------------------------
 
-        # ----------------Kaleidoscope ER--------------------------- 
-        original_ka_episodes = self.ker.ker_process(obs,acts,goals,achieved_goals)
+        # KER_4 = 4
+        KER_4 = 1
+        x = np.array(achieved_goals)
+        y = np.linalg.norm(x[1:] - x[0], axis=2)
+        # y = np.linalg.norm(x[1:] - x[:-1], axis=2)
+        if any(y > 0.05):
+            # set_trace()
+            self.count_ray +=1
+            # print('move the ag')
+            print('move the ag:', self.count_ray)
+            # KER_4 = 1
+            KER_4 = 8
+            # print('xag:',x)
+            # print('yag:',y)
+            # print('g:',self.g)
+            # print('successes:',successes)
+
+
+        # ----------------Kaleidoscope ER---------------------------
+        original_ka_episodes = []
+        for _ in range(KER_4):  # equal to KER=8*2=16
+            mirror_origin = np.random.rand(2) * 0
+            # mirror_origin = np.random.rand(2) * 0.2 - 0.1
+            ka_episodes = self.ker.ker_process(obs,acts,goals,achieved_goals, mirror_origin[0], mirror_origin[1])
+            original_ka_episodes.append(ka_episodes)
         # ----------------end---------------------------
-
-
-
-        # ----------------pack up as transition--------------------------- 
-        for (obs,acts,goals,achieved_goals) in original_ka_episodes:
-            episode = dict(o=obs,
-                        u=acts,
-                        g=goals,
-                        ag=achieved_goals)
-            for key, value in zip(self.info_keys, info_values):
-                episode['info_{}'.format(key)] = value
-            episodes.append(episode)
+        # ----------------pack up as transition---------------------------
+        for one_mirror_origin in original_ka_episodes:
+            for (obs,acts,goals,achieved_goals) in one_mirror_origin:
+                episode = dict(o=obs,
+                            u=acts,
+                            g=goals,
+                            ag=achieved_goals)
+                for key, value in zip(self.info_keys, info_values):
+                    episode['info_{}'.format(key)] = value
+                episodes.append(episode)
         # ----------------end---------------------------
 
         # stats
@@ -254,6 +289,9 @@ class RolloutWorker:
         self.success_history.append(success_rate)
         if self.compute_Q:
             self.Q_history.append(np.mean(Qs))
+
+        # if success_rate != 0:
+        #     set_trace()
 
         mul_factor = 1
         self.n_episodes += (mul_factor* self.rollout_batch_size)

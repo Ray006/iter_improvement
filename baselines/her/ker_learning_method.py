@@ -5,14 +5,18 @@ from ipdb import set_trace
 import math
 
 PI = math.pi
-SYM_PLANE_Y = 0.75 * 2
+# SYM_PLANE_Y = 0.75 * 2
+
 
 IF_CLEAR_BUFFER = False
 SINGLE_SUC_RATE_THRESHOLD = None  # Set to none if donnot terminate KER
 
 
-MAX_Z_THETA_PICK_PUSH = 0.1443
+MAX_Z_THETA_PICK_PUSH = 3.14
 MAX_Z_THETA_SLIDE = 0.0697
+
+# MAX_Z_THETA_PICK_PUSH = 0.1443
+# MAX_Z_THETA_SLIDE = 0.0697
 BOOL_OUTPUT_ONE_EPISODE_TRAJ = False # Generated one episode KER trajectories for plotting
 class ker_learning:
     def __init__(self,env_type,n_ker):
@@ -21,12 +25,12 @@ class ker_learning:
         self.sym_plane = None
         if (self.env_type == 'FetchPickAndPlace-v1') or (self.env_type == 'FetchPush-v1' )or (self.env_type == 'FetchReach-v1' ) :
             self.max_z_theta= MAX_Z_THETA_PICK_PUSH
-            self.robot_base_x = 0.695
-            self.robot_base_y = 0.75
+            self.robot_base_x_ = 0.695
+            self.robot_base_y_ = 0.75
         elif  self.env_type == 'FetchSlide-v1' :
             self.max_z_theta = MAX_Z_THETA_SLIDE
-            self.robot_base_x = 0.34
-            self.robot_base_y = 0.75
+            self.robot_base_x_ = 0.34
+            self.robot_base_y_ = 0.75
 
     def y_ker(self,param):
         return self.sym_plane_compute(param,'y_axis','y_ker')
@@ -36,7 +40,7 @@ class ker_learning:
 
 
     def kaleidoscope_robot(self, param, z_theta, sym_axis = 'y_axis', sym_method = 'y_ker'):
-        
+
         if sym_axis == 'y_axis':
             # in linear variable, plus i; in angular variable, minus i
             i = 0
@@ -44,7 +48,7 @@ class ker_learning:
             i = -1
 
         if sym_method == 'y_ker':
-            self.sym_plane = SYM_PLANE_Y
+            self.sym_plane = self.SYM_PLANE_Y
         elif sym_method == 'x_ker':
             self.sym_plane = SYM_PLANE_X
 
@@ -57,7 +61,7 @@ class ker_learning:
         # Determine the input is which element
         param_len = len(param[0])
         #goal & achieved goal  
-        if param_len == 3:    
+        if param_len == 3:
             v_l_a = param[0][0:3]
             s_v_l_a = self.linear_vector_symmetric_with_rot_plane(True, v_l_a, rot_z_theta, inv_rot_z_theta, i)
             param[0][0:3] =  s_v_l_a
@@ -76,7 +80,7 @@ class ker_learning:
             v_l_a = param[0][3:6]
             s_v_l_a = self.linear_vector_symmetric_with_rot_plane(False, v_l_a, rot_z_theta, inv_rot_z_theta, i)
             param[0][3:6] =  s_v_l_a
-            
+
         elif param_len >= 25:     # observation with object
             # sym_grip_pos
             v_l_a = param[0][0:3]
@@ -96,7 +100,7 @@ class ker_learning:
             # sym_obj_rot_euler
             theta_a = param[0][11:14]
             param[0][11:14] = self.orientation_mat_symmetric_with_rot_plane(theta_a, rot_z_theta, inv_rot_z_theta, i)
-            
+
             # get the obj real velp 
             v_l_a = param[0][14:17]+param[0][20:23]
             # get the sym obj real velp
@@ -125,9 +129,9 @@ class ker_learning:
 
         return param.copy()
 
-
     def linear_vector_symmetric_with_rot_plane(self,if_pos, v_l_a, rot_z_theta, inv_rot_z_theta, i):
         # Point 'a' position = v_l_a
+
         if if_pos == True:
             v_l_a[0] -= self.robot_base_x
             v_l_a[1] -= self.robot_base_y
@@ -138,7 +142,6 @@ class ker_learning:
             s_v_l_a[0] += self.robot_base_x
             s_v_l_a[1] += self.robot_base_y
         return s_v_l_a.copy()
-
 
     def orientation_mat_symmetric_with_rot_plane(self, theta_a, rot_z_theta, inv_rot_z_theta, i):
         # Point 'a' orientation euler angle = theta_a
@@ -178,7 +181,7 @@ class ker_learning:
 
 
         if sym_method == 'y_ker':
-            self.sym_plane = SYM_PLANE_Y
+            self.sym_plane = self.SYM_PLANE_Y
         elif sym_method == 'x_ker':
             self.sym_plane = SYM_PLANE_X
         # elif sym_method == 'kaleidoscope_robot':
@@ -196,7 +199,7 @@ class ker_learning:
             param[0][1+i] = self.sym_plane - param[0][1+i]
             # vel do not need SYM_PLANE
             param[0][4+i] = -param[0][4+i]
-            
+
         elif param_len >= 25:     # observation with object
             # set_trace()
             # sym_grip_pos
@@ -217,7 +220,7 @@ class ker_learning:
             # no need to transform back to original pose, it can be directly compute the relative pose.
             param[0][15+i] = -param[0][15+i]
             param[0][21+i] = -param[0][21+i]
-            
+
             # sym_obj_velr
             param[0][17-i] = -param[0][17-i]
             param[0][19] = -param[0][19]
@@ -230,9 +233,15 @@ class ker_learning:
         return param.copy()
 
 
-    def ker_process(self,obs,acts,goals,achieved_goals):
+    def ker_process(self,obs,acts,goals,achieved_goals, deta_x, deta_y):
 
-
+        # set_trace()
+        x,y = obs[0][0][:2]
+        self.robot_base_x = x
+        self.robot_base_y = y
+        # self.robot_base_x = self.robot_base_x_ + deta_x
+        # self.robot_base_y = self.robot_base_y_ + deta_y
+        self.SYM_PLANE_Y = self.robot_base_y * 2
         # ---------------------------linear symmetry------------------------------------------------
         ka_episodes_set=[]
         ka_episodes_set.append([obs,acts,goals,achieved_goals])
@@ -258,12 +267,12 @@ class ker_learning:
             #output the symmetric thetas for one step 
             output_theta_set = z_theta_set.copy()
             output_theta_set.append(0)
-            save_dir = '/home/bourne/data_plot/visualized_plot_ker_traj/all_n_ker_trajs/thetas_n_ker_'+str(self.n_ker)+'.npy'
+            save_dir = '/home/data/Ray_data/iter_data/thetas_n_ker_'+str(self.n_ker)+'.npy'
             np.save(save_dir, output_theta_set)
 
         ka_episodes_tem = []
         for z_theta in z_theta_set:
-            
+
             for [o_obs, o_acts, o_goals, o_achieved_goals] in ka_episodes_set:
                 s_goals = []
                 s_obs = []
@@ -318,7 +327,7 @@ class ker_learning:
 
         # output the trajs for one step
         if BOOL_OUTPUT_ONE_EPISODE_TRAJ:
-            np.save(('/home/bourne/data_plot/visualized_plot_ker_traj/all_n_ker_trajs/trajs_n_ker_'+str(self.n_ker)+'.npy'), ka_episodes_set)
+            np.save(('/home/data/Ray_data/iter_data/all_n_ker_trajs_'+str(self.n_ker)+'.npy'), ka_episodes_set)
             set_trace()
         return ka_episodes_set
         #--------------- end.
