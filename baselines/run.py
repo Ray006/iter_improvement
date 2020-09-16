@@ -74,14 +74,20 @@ def train(args, extra_args):
 
     print('Training {} on {}:{} with arguments \n{}'.format(args.alg, env_type, env_id, alg_kwargs))
 
+    # from ipdb import set_trace
+    # set_trace()
+
     model = learn(
         env=env,
         seed=seed,
         total_timesteps=total_timesteps,
         save_path = args.save_path,
-        n_ker = args.n_ker,
+        n_KER = args.n_KER,
         before_GER_minibatch_size = args.before_GER_minibatch_size,
         n_GER = args.n_GER,
+        n_translation = args.n_Tran,
+        dynamic_mirror_origin = args.dyn_origin,
+        dynamic_KER = args.dyn_HER,
         **alg_kwargs
     )
 
@@ -206,7 +212,8 @@ def configure_logger(log_path, **kwargs):
 
 def main(args):
     # configure logger, disable logging in child MPI processes (with rank > 0)
-
+    # from ipdb import set_trace
+    # set_trace()
     arg_parser = common_arg_parser()
     args, unknown_args = arg_parser.parse_known_args(args)
     extra_args = parse_cmdline_kwargs(unknown_args)

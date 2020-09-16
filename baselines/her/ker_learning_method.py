@@ -12,25 +12,28 @@ IF_CLEAR_BUFFER = False
 SINGLE_SUC_RATE_THRESHOLD = None  # Set to none if donnot terminate KER
 
 
-MAX_Z_THETA_PICK_PUSH = 3.14
-MAX_Z_THETA_SLIDE = 0.0697
-
-# MAX_Z_THETA_PICK_PUSH = 0.1443
+# MAX_Z_THETA_PICK_PUSH = 3.14/2
 # MAX_Z_THETA_SLIDE = 0.0697
+
+MAX_Z_THETA_PICK_PUSH = 0.1443
+MAX_Z_THETA_SLIDE = 0.0697
 BOOL_OUTPUT_ONE_EPISODE_TRAJ = False # Generated one episode KER trajectories for plotting
 class ker_learning:
-    def __init__(self,env_type,n_ker):
+    def __init__(self,env_type,n_KER,dynamic_mirror_origin):
         self.env_type = env_type
-        self.n_ker = n_ker
+        self.n_KER = n_KER
+        self.dynamic_mirror_origin = dynamic_mirror_origin
         self.sym_plane = None
         if (self.env_type == 'FetchPickAndPlace-v1') or (self.env_type == 'FetchPush-v1' )or (self.env_type == 'FetchReach-v1' ) :
             self.max_z_theta= MAX_Z_THETA_PICK_PUSH
-            self.robot_base_x_ = 0.695
-            self.robot_base_y_ = 0.75
+            self.robot_base_x = 0.695
+            self.robot_base_y = 0.75
         elif  self.env_type == 'FetchSlide-v1' :
             self.max_z_theta = MAX_Z_THETA_SLIDE
-            self.robot_base_x_ = 0.34
-            self.robot_base_y_ = 0.75
+            self.robot_base_x = 0.34
+            self.robot_base_y = 0.75
+
+        self.SYM_PLANE_Y = self.robot_base_y * 2
 
     def y_ker(self,param):
         return self.sym_plane_compute(param,'y_axis','y_ker')
@@ -233,24 +236,29 @@ class ker_learning:
         return param.copy()
 
 
-    def ker_process(self,obs,acts,goals,achieved_goals, deta_x, deta_y):
+    def ker_process(self,obs,acts,goals,achieved_goals, n_KER=None):
 
         # set_trace()
-        x,y = obs[0][0][:2]
-        self.robot_base_x = x
-        self.robot_base_y = y
-        # self.robot_base_x = self.robot_base_x_ + deta_x
-        # self.robot_base_y = self.robot_base_y_ + deta_y
-        self.SYM_PLANE_Y = self.robot_base_y * 2
+        if self.dynamic_mirror_origin == 'True':
+            x,y = obs[0][0][:2]   # choose the starting grip pos as the mirror origin
+            self.robot_base_x = x
+            self.robot_base_y = y
+            self.SYM_PLANE_Y = self.robot_base_y * 2
+
+            self.max_z_theta = 3.14/2
+
+        if n_KER != None:
+            self.n_KER = n_KER
+
         # ---------------------------linear symmetry------------------------------------------------
         ka_episodes_set=[]
         ka_episodes_set.append([obs,acts,goals,achieved_goals])
         z_theta_set = []
 
-        # If self.n_ker == None, means use vanillar her, or in test mode.
-        if self.n_ker == None or self.n_ker == 0:
+        # If self.n_KER == None, means use vanillar her, or in test mode.
+        if self.n_KER == None or self.n_KER == 0:
             if BOOL_OUTPUT_ONE_EPISODE_TRAJ:
-                np.save(('/home/bourne/data_plot/visualized_plot_ker_traj/all_n_ker_trajs/sym_'+str(self.n_ker)+'.npy'), ka_episodes_set)
+                np.save(('/home/bourne/data_plot/visualized_plot_ker_traj/all_n_KER_trajs/sym_'+str(self.n_KER)+'.npy'), ka_episodes_set)
                 set_trace()
             return ka_episodes_set
 
@@ -258,8 +266,8 @@ class ker_learning:
         # not finished yet
         # self.compute_sym_number(goals[0][0])
 
-        # One symmetry will be done in the y ker, so here n_ker need to minus 1 
-        for _ in range(self.n_ker-1):
+        # One symmetry will be done in the y ker, so here n_KER need to minus 1
+        for _ in range(self.n_KER-1):
             z_theta = np.random.uniform(0, self.max_z_theta)
             z_theta_set.append(z_theta)
 
@@ -267,7 +275,7 @@ class ker_learning:
             #output the symmetric thetas for one step 
             output_theta_set = z_theta_set.copy()
             output_theta_set.append(0)
-            save_dir = '/home/data/Ray_data/iter_data/thetas_n_ker_'+str(self.n_ker)+'.npy'
+            save_dir = '/home/data/Ray_data/iter_data/thetas_n_KER_'+str(self.n_KER)+'.npy'
             np.save(save_dir, output_theta_set)
 
         ka_episodes_tem = []
@@ -327,7 +335,7 @@ class ker_learning:
 
         # output the trajs for one step
         if BOOL_OUTPUT_ONE_EPISODE_TRAJ:
-            np.save(('/home/data/Ray_data/iter_data/all_n_ker_trajs_'+str(self.n_ker)+'.npy'), ka_episodes_set)
+            np.save(('/home/data/Ray_data/iter_data/all_n_KER_trajs_'+str(self.n_KER)+'.npy'), ka_episodes_set)
             set_trace()
         return ka_episodes_set
         #--------------- end.

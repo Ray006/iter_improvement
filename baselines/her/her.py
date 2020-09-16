@@ -28,7 +28,7 @@ def mpi_average(value):
 
 def train(*, policy, rollout_worker, evaluator,
           n_epochs, n_test_rollouts, n_cycles, n_batches, policy_save_interval,
-          save_path, demo_file, env_name,n_ker, **kwargs):
+          save_path, demo_file, env_name,n_KER, n_translation, **kwargs):
     rank = MPI.COMM_WORLD.Get_rank()
 
     if save_path:
@@ -44,7 +44,6 @@ def train(*, policy, rollout_worker, evaluator,
     # num_timesteps = n_epochs * n_cycles * rollout_length * number of rollout workers
 
     # prepare the param for training on KER
-    n_ker_number = n_ker
     first_time_enter = True
     test_suc_rate = 0
     single_suc_rate_threshold = SINGLE_SUC_RATE_THRESHOLD
@@ -54,7 +53,7 @@ def train(*, policy, rollout_worker, evaluator,
         # train
         
         # #Terminate KER during training or not 
-        # if (single_suc_rate_threshold is not None) and (n_ker_number !=0):
+        # if (single_suc_rate_threshold is not None) and (n_KER_number !=0):
         #     # int(xxx*10) to get rid of the float, and just enter once to terminate KER.
         #     if (int(test_suc_rate*10) == int(single_suc_rate_threshold*10) ) and first_time_enter:
         #         first_time_enter = False
@@ -67,8 +66,8 @@ def train(*, policy, rollout_worker, evaluator,
             # print('epoch, cycles:', epoch, _)
             episodes = rollout_worker.generate_rollouts(terminate_ker=terminate_ker_now)
             # with KER
-            # if (n_ker_number !=0) and terminate_ker_now==False:
-            if (n_ker_number !=0):
+            # if (n_KER_number !=0) and terminate_ker_now==False:
+            if (n_KER !=0 or n_translation !=0):
                 for episode in episodes:
                     policy.store_episode(episode)
             # without KER
@@ -78,7 +77,7 @@ def train(*, policy, rollout_worker, evaluator,
                 if_clear_buffer = False
 
             # set_trace()
-            n_batches = 80
+            # n_batches = 80
 
             for _ in range(n_batches):
                 policy.train()
@@ -137,13 +136,17 @@ def learn(*, network, env, total_timesteps,
     override_params=None,
     load_path=None,
     save_path=None,
-    n_ker = 0,
+    n_KER = 0,
     before_GER_minibatch_size = None,
     n_GER = 0,
     err_distance=0.05,
+    n_translation = 0,
+    dynamic_mirror_origin=False,
+    dynamic_KER = 0,
     **kwargs
 ):
 
+    # set_trace()
     override_params = override_params or {}
     if MPI is not None:
         rank = MPI.COMM_WORLD.Get_rank()
@@ -173,6 +176,17 @@ def learn(*, network, env, total_timesteps,
     params.update(kwargs)
 
     config.log_params(params, logger=logger)
+
+
+    logger.warn()
+    logger.warn('--- n_KER:', n_KER)
+    logger.warn('--- n_GER:', n_GER)
+    logger.warn('--- n_Tran:', n_translation)
+    logger.warn('--- dynamic_mirror_origin:', dynamic_mirror_origin)
+    logger.warn('--- dynamic_KER:', dynamic_KER)
+    logger.warn('--- max_theta has not tuned, dyn_mirror is 3.14/2, or 0.1443')
+    logger.warn('--- n_batch has not tuned, now is 40')
+    logger.warn()
 
     if num_cpu == 1:
         logger.warn()
@@ -214,7 +228,9 @@ def learn(*, network, env, total_timesteps,
 
     eval_env = eval_env or env
 
-    rollout_worker = RolloutWorker(env_name, env, policy, dims, logger, monitor=True,n_ker=n_ker, **rollout_params)
+
+    rollout_worker = RolloutWorker(env_name, env, policy, dims, logger, monitor=True,n_KER=n_KER, n_translation=n_translation,
+                                   dynamic_mirror_origin=dynamic_mirror_origin, dynamic_KER =dynamic_KER, **rollout_params)
     evaluator = RolloutWorker(env_name,eval_env, policy, dims, logger, **eval_params)
 
     n_cycles = params['n_cycles']
@@ -224,7 +240,7 @@ def learn(*, network, env, total_timesteps,
         save_path=save_path, policy=policy, rollout_worker=rollout_worker,
         evaluator=evaluator, n_epochs=n_epochs, n_test_rollouts=params['n_test_rollouts'],
         n_cycles=params['n_cycles'], n_batches=params['n_batches'],
-        policy_save_interval=policy_save_interval, demo_file=demo_file,env_name=env_name, n_ker = n_ker)
+        policy_save_interval=policy_save_interval, demo_file=demo_file,env_name=env_name, n_KER = n_KER, n_translation=n_translation)
 
 
 @click.command()
