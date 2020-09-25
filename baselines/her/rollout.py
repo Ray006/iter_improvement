@@ -251,10 +251,11 @@ class RolloutWorker:
         #     episodes.append(episode)
         # # ----------------end---------------------------
 
+
         n_KER = None
         if self.dynamic_KER:
             # set_trace()
-            assert self.dynamic_KER <1000 and self.dynamic_KER > 10
+            assert self.dynamic_KER <10000 and self.dynamic_KER > 10
             n_KER_1 = self.dynamic_KER%10
             n_KER_2 = self.dynamic_KER//10
             assert n_KER_1!=0 and n_KER_2!=0
@@ -272,6 +273,15 @@ class RolloutWorker:
                 # print('yag:',y)
                 # print('g:',self.g)
                 # print('successes:',successes)
+        else:
+            # ******************print
+            # set_trace()
+            ag = np.array(achieved_goals)
+            delta_movement = np.linalg.norm(ag[1:] - ag[0], axis=2)  # compare with the object starting pos
+            if any(delta_movement > 0.05):  # if the object is moved
+                self.count_ray += 1
+                print('move the ag:', self.count_ray)
+            # ******************print
 
         # ----------------Kaleidoscope ER---------------------------
         original_ka_episodes = self.ker.ker_process(obs,acts,goals,achieved_goals,n_KER)

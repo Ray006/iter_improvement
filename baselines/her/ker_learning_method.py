@@ -15,8 +15,8 @@ SINGLE_SUC_RATE_THRESHOLD = None  # Set to none if donnot terminate KER
 # MAX_Z_THETA_PICK_PUSH = 3.14/2
 # MAX_Z_THETA_SLIDE = 0.0697
 
-MAX_Z_THETA_PICK_PUSH = 0.1443
-MAX_Z_THETA_SLIDE = 0.0697
+MAX_Z_THETA_PICK_PUSH = 0.1443   # 8 degrees
+MAX_Z_THETA_SLIDE = 0.0697   # 4 degrees
 BOOL_OUTPUT_ONE_EPISODE_TRAJ = False # Generated one episode KER trajectories for plotting
 class ker_learning:
     def __init__(self,env_type,n_KER,dynamic_mirror_origin):
@@ -80,9 +80,9 @@ class ker_learning:
             s_v_l_a = self.linear_vector_symmetric_with_rot_plane(True, v_l_a, rot_z_theta, inv_rot_z_theta, i)
             param[0][0:3] =  s_v_l_a
             # grip vel
-            v_l_a = param[0][3:6]
+            v_l_a = param[0][5:8]
             s_v_l_a = self.linear_vector_symmetric_with_rot_plane(False, v_l_a, rot_z_theta, inv_rot_z_theta, i)
-            param[0][3:6] =  s_v_l_a
+            param[0][5:8] =  s_v_l_a
 
         elif param_len >= 25:     # observation with object
             # sym_grip_pos
@@ -246,6 +246,10 @@ class ker_learning:
             self.SYM_PLANE_Y = self.robot_base_y * 2
 
             self.max_z_theta = 3.14/2
+            # MAX_Z_THETA_SLIDE = 0.0697
+
+            if self.env_type == 'FetchSlide-v1':
+                self.max_z_theta = 3.14 / 6
 
         if n_KER != None:
             self.n_KER = n_KER

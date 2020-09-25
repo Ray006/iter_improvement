@@ -79,6 +79,8 @@ def plot_results(dirs, num_timesteps=10e6, xaxis=X_TIMESTEPS, yaxis=Y_REWARD, ti
 def main():
     import argparse
     import os
+    from ipdb import set_trace
+    set_trace()
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--dirs', help='List of log directories', nargs = '*', default=['./log'])
     parser.add_argument('--num_timesteps', type=int, default=int(10e6))

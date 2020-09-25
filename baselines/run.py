@@ -87,7 +87,7 @@ def train(args, extra_args):
         n_GER = args.n_GER,
         n_translation = args.n_Tran,
         dynamic_mirror_origin = args.dyn_origin,
-        dynamic_KER = args.dyn_HER,
+        dynamic_KER = args.dyn_KER,
         **alg_kwargs
     )
 

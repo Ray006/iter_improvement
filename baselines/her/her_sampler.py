@@ -2,6 +2,8 @@ import numpy as np
 from baselines.her.ger_learning_method import ger_learning
 from ipdb import set_trace
 
+xxtest = 0.8
+reduce_HER = 0.8/(100*100*50)
 
 def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
     """Creates a sample function that can be used for HER experience replay.
@@ -17,6 +19,7 @@ def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
         future_p = 1 - (1. / (1 + replay_k))
     else:  # 'replay_strategy' == 'none'
         future_p = 0
+
     def _sample_her_transitions(episode_batch, batch_size_in_transitions,env_name=None, n_GER=0,err_distance=0.05):
         """episode_batch is {key: array(buffer_size x T x dim_key)}
         """
@@ -24,9 +27,12 @@ def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
         rollout_batch_size = episode_batch['u'].shape[0]
         # batch_size = 256
 
+        # if rollout_batch_size == 256:
         # set_trace()
 
         batch_size = batch_size_in_transitions
+
+        # if batch_size == 256: set_trace()
 
         # Select which episodes and time steps to use.
         episode_idxs = np.random.randint(0, rollout_batch_size, batch_size)
@@ -36,6 +42,15 @@ def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
 
         # Select future time indexes proportional with probability future_p. These
         # will be used for HER replay by substituting in future goals.
+        # ---------------- Added by Ray decrease her ---------------------------
+        # global xxtest
+        # if xxtest >= 0.3:
+        #     xxtest -= reduce_HER
+        # if (xxtest*100)//5==0:
+        #     print('future_p:',xxtest)
+        # her_indexes = np.where(np.random.uniform(size=batch_size) < xxtest)
+        # ---------------- Added by Ray decrease her ---------------------------
+
         her_indexes = np.where(np.random.uniform(size=batch_size) < future_p)
         future_offset = np.random.uniform(size=batch_size) * (T - t_samples)
         future_offset = future_offset.astype(int)
@@ -47,16 +62,60 @@ def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
         future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
         transitions['g'][her_indexes] = future_ag.copy()
 
+        # if batch_size == 256: set_trace()
+
+        # ---------------- Added by Ray PBJ-HER ---------------------------
+        # starting_ags = episode_batch['ag'][episode_idxs[her_indexes]][:, 0, :]
+        # starting_ags = np.tile(starting_ags, (1, T)).reshape(-1, T, 3)
+        # remaining_ags = episode_batch['ag'][episode_idxs[her_indexes]][:, 1:, :]
+        # delta_ags = remaining_ags - starting_ags
+        # delta_ags_norm = np.linalg.norm(delta_ags, axis=2)
+        # move_or_not = [any(traj > 0.05) for traj in delta_ags_norm]
+        # meaningless_traj_index = np.where(np.array(move_or_not)==False)
+        #
+        # # starting_ags = episode_batch['ag'][episode_idxs][:, 0, :]
+        # # starting_ags = np.tile(starting_ags, (1, T)).reshape(-1, T, 3)
+        # # remaining_ags = episode_batch['ag'][episode_idxs][:, 1:, :]
+        # # delta_ags = remaining_ags - starting_ags
+        # # delta_ags_norm = np.linalg.norm(delta_ags, axis=2)
+        # # move_or_not = [any(traj > 0.05) for traj in delta_ags_norm]
+        # # meaningless_traj_index = np.where(np.array(move_or_not)==False)
+        #
+        #
+        # future_offset_ag = np.random.uniform(size=batch_size) * future_offset # the ag should be between in t_samples and future_t
+        # future_offset_ag = future_offset_ag.astype(int)
+        # future_t_ag = (t_samples + 1 + future_offset_ag)[meaningless_traj_index]
+        #
+        # future_grip = episode_batch['o'][episode_idxs[meaningless_traj_index], future_t_ag][:,:3]
+        # transitions['g'][meaningless_traj_index] = future_grip.copy()
+        # transitions['ag'][meaningless_traj_index] = future_grip.copy()
+        # transitions['ag_2'][meaningless_traj_index] = future_grip.copy()
+        # transitions['o'][meaningless_traj_index][:, 3:6] = future_grip.copy()
+        # transitions['o_2'][meaningless_traj_index][:, 3:6] = future_grip.copy()
+
+
+        # future_offset_ag = np.random.uniform(size=batch_size) * future_offset # the ag should be between in t_samples and future_t
+        # future_offset_ag = future_offset_ag.astype(int)
+        # future_t_ag = (t_samples + 1 + future_offset_ag)[her_indexes]
+        #
+        # future_grip = episode_batch['o'][episode_idxs[her_indexes], future_t_ag][:,:3]
+        # transitions['ag'][her_indexes] = future_grip.copy()
+        # transitions['ag_2'][her_indexes] = future_grip.copy()
+        # transitions['o'][her_indexes][:, 3:6] = future_grip.copy()
+        # transitions['o_2'][her_indexes][:, 3:6] = future_grip.copy()
+        # ---------------- Added by Ray PBJ-HER ---------------------------
+
+
         # create a new dict to store all the original, KER, HER, AGER data.
         all_transitions = {key: transitions[key].copy()
-                        for key in episode_batch.keys()}
+                           for key in episode_batch.keys()}
 
         # ----------------Goal-augmented ER--------------------------- 
         if n_GER:
             # when n_GER != 0
             for _ in range (n_GER):
                 PER_transitions = {key: transitions[key].copy()
-                        for key in episode_batch.keys()}
+                                   for key in episode_batch.keys()}
                 ger_machine = ger_learning(env_name = env_name,err_distance=err_distance)
                 PER_indexes= np.array((range(0,batch_size)))
                 HER_KER_future_ag = PER_transitions['g'][PER_indexes].copy()
@@ -82,8 +141,8 @@ def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
         all_transitions['r'] = reward_fun(**reward_params)
 
         all_transitions = {k: all_transitions[k].reshape(batch_size, *all_transitions[k].shape[1:])
-                       for k in all_transitions.keys()}
-    
+                           for k in all_transitions.keys()}
+
         assert(all_transitions['u'].shape[0] == batch_size_in_transitions)
         return all_transitions
 

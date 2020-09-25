@@ -77,7 +77,7 @@ def train(*, policy, rollout_worker, evaluator,
                 if_clear_buffer = False
 
             # set_trace()
-            # n_batches = 80
+            # n_batches = 2
 
             for _ in range(n_batches):
                 policy.train()
@@ -182,9 +182,9 @@ def learn(*, network, env, total_timesteps,
     logger.warn('--- n_KER:', n_KER)
     logger.warn('--- n_GER:', n_GER)
     logger.warn('--- n_Tran:', n_translation)
-    logger.warn('--- dynamic_mirror_origin:', dynamic_mirror_origin)
-    logger.warn('--- dynamic_KER:', dynamic_KER)
-    logger.warn('--- max_theta has not tuned, dyn_mirror is 3.14/2, or 0.1443')
+    logger.warn('--- dyn_mirror_origin(with 180 angles):', dynamic_mirror_origin)
+    logger.warn('--- dyn_KER:', dynamic_KER)
+    logger.warn('--- if dyn_mirror_origin=0, max_theta is 0.1443')
     logger.warn('--- n_batch has not tuned, now is 40')
     logger.warn()
 

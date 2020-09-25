@@ -177,7 +177,7 @@ def common_arg_parser():
     parser.add_argument('--n_GER', type=int, default=0)
     parser.add_argument('--n_Tran', type=int, default=0)
     parser.add_argument('--dyn_origin', type=str, default=False)
-    parser.add_argument('--dyn_HER', type=int, default=0)
+    parser.add_argument('--dyn_KER', type=int, default=0)
     return parser
 
 def robotics_arg_parser():
