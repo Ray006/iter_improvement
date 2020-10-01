@@ -236,11 +236,13 @@ class ker_learning:
         return param.copy()
 
 
-    def ker_process(self,obs,acts,goals,achieved_goals, n_KER=None):
+    def ker_process(self,obs,acts,goals,achieved_goals, n_KER=None, step=0):
 
+        ########################################################################################
+        # ---------------- Added by Ray dyn_KER ---------------------------
         # set_trace()
         if self.dynamic_mirror_origin == 'True':
-            x,y = obs[0][0][:2]   # choose the starting grip pos as the mirror origin
+            x,y = obs[step][0][:2]   # choose the starting grip pos as the mirror origin
             self.robot_base_x = x
             self.robot_base_y = y
             self.SYM_PLANE_Y = self.robot_base_y * 2
@@ -253,6 +255,30 @@ class ker_learning:
 
         if n_KER != None:
             self.n_KER = n_KER
+        # ---------------- Added by Ray dyn_KER ---------------------------
+        ########################################################################################
+
+
+        # ########################################################################################
+        # # ---------------- Added by Ray dyn_KER ---------------------------
+        # # set_trace()
+        # if self.dynamic_mirror_origin == 'True':
+        #     x,y = obs[0][0][:2]   # choose the starting grip pos as the mirror origin
+        #     self.robot_base_x = x
+        #     self.robot_base_y = y
+        #     self.SYM_PLANE_Y = self.robot_base_y * 2
+        #
+        #     self.max_z_theta = 3.14/2
+        #     # MAX_Z_THETA_SLIDE = 0.0697
+        #
+        #     if self.env_type == 'FetchSlide-v1':
+        #         self.max_z_theta = 3.14 / 6
+        #
+        # if n_KER != None:
+        #     self.n_KER = n_KER
+        # # ---------------- Added by Ray dyn_KER ---------------------------
+        # ########################################################################################
+
 
         # ---------------------------linear symmetry------------------------------------------------
         ka_episodes_set=[]

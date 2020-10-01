@@ -16,7 +16,7 @@ class RolloutWorker:
     def __init__(self, env_name, venv, policy, dims, logger, T, rollout_batch_size=1,
                  exploit=False, use_target_net=False, compute_Q=False, noise_eps=0,
                  random_eps=0, history_len=100, render=False, monitor=False,n_KER=0,
-                 n_translation=0,dynamic_mirror_origin=False, dynamic_KER =0,
+                 dynamic_mirror_origin=False, dynamic_KER =0,
                   **kwargs):
         """Rollout worker generates experience by interacting with one or many environments.
 
@@ -49,8 +49,8 @@ class RolloutWorker:
         self.clear_history()
         self.n_KER = n_KER
         self.dynamic_KER = dynamic_KER
+        self.dynamic_mirror_origin = dynamic_mirror_origin
         self.ker = ker_learning(env_name,n_KER,dynamic_mirror_origin)
-        self.n_translation = n_translation
 
         self.count_ray = 0
 
@@ -69,8 +69,8 @@ class RolloutWorker:
             all_trajectories = self.generate_rollouts_vanilla()
 
         # set_trace()
-        if self.n_translation:
-            all_trajectories = translation_learning(all_trajectories, self.n_translation, self.n_KER)
+        # if self.n_translation:
+        #     all_trajectories = translation_learning(all_trajectories, self.n_translation, self.n_KER)
 
         return all_trajectories
 
@@ -283,7 +283,7 @@ class RolloutWorker:
                 print('move the ag:', self.count_ray)
             # ******************print
 
-        # ----------------Kaleidoscope ER---------------------------
+
         original_ka_episodes = self.ker.ker_process(obs,acts,goals,achieved_goals,n_KER)
         # ----------------end---------------------------
         # ----------------pack up as transition---------------------------
@@ -295,7 +295,42 @@ class RolloutWorker:
             for key, value in zip(self.info_keys, info_values):
                 episode['info_{}'.format(key)] = value
             episodes.append(episode)
-        # ----------------end---------------------------
+
+        # if self.dynamic_mirror_origin == 'True':    # untested
+        #     temp_trajs = []
+        #     step = 5
+        #     for i in range(step):
+        #         # ----------------Kaleidoscope ER---------------------------
+        #         original_ka_episodes = self.ker.ker_process(obs, acts, goals, achieved_goals, n_KER, step=i)
+        #         temp_trajs.append(original_ka_episodes)
+        #         # ----------------end---------------------------
+        #
+        #     for temp_traj in temp_trajs:
+        #         # ----------------pack up as transition---------------------------
+        #         for (obs, acts, goals, achieved_goals) in temp_traj:
+        #             episode = dict(o=obs,
+        #                            u=acts,
+        #                            g=goals,
+        #                            ag=achieved_goals)
+        #             for key, value in zip(self.info_keys, info_values):
+        #                 episode['info_{}'.format(key)] = value
+        #             episodes.append(episode)
+        #         # ----------------end---------------------------
+        #
+        # else:
+        #     # ----------------Kaleidoscope ER---------------------------
+        #     original_ka_episodes = self.ker.ker_process(obs,acts,goals,achieved_goals,n_KER)
+        #     # ----------------end---------------------------
+        #     # ----------------pack up as transition---------------------------
+        #     for (obs,acts,goals,achieved_goals) in original_ka_episodes:
+        #         episode = dict(o=obs,
+        #                     u=acts,
+        #                     g=goals,
+        #                     ag=achieved_goals)
+        #         for key, value in zip(self.info_keys, info_values):
+        #             episode['info_{}'.format(key)] = value
+        #         episodes.append(episode)
+        #     # ----------------end---------------------------
 
 
         # stats

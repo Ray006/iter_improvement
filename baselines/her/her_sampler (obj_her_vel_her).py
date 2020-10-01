@@ -20,7 +20,7 @@ def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
     else:  # 'replay_strategy' == 'none'
         future_p = 0
 
-    def _sample_her_transitions(episode_batch, batch_size_in_transitions,env_name=None, n_GER=0, grade_GER=0, err_distance=0.05):
+    def _sample_her_transitions(episode_batch, batch_size_in_transitions,env_name=None, n_GER=0,err_distance=0.05):
         """episode_batch is {key: array(buffer_size x T x dim_key)}
         """
         T = episode_batch['u'].shape[1]
@@ -56,27 +56,26 @@ def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
         future_offset = future_offset.astype(int)
         future_t = (t_samples + 1 + future_offset)[her_indexes]
 
-        #######################################################################################
-        # Replace goal with achieved goal but only for the previously-selected
-        # HER transitions (as defined by her_indexes). For the other transitions,
-        # keep the original goal.
-        future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
-        transitions['g'][her_indexes] = future_ag.copy()
-
+        ########################################################################################
+        # # Replace goal with achieved goal but only for the previously-selected
+        # # HER transitions (as defined by her_indexes). For the other transitions,
+        # # keep the original goal.
+        # future_ag = episode_batch['ag'][episode_idxs[her_indexes], future_t]
+        # transitions['g'][her_indexes] = future_ag.copy()
 
         ########################################################################################
         # ---------------- Added by Ray velocity-HER ---------------------------
-        # ######### v4 after v origin ##########
-        # # if batch_size == 256: set_trace()
-        # obs = episode_batch['o'][episode_idxs[her_indexes], future_t]
-        # obj_vel_abs_vecs = obs[:, 14:17]
-        # obj_v_vecs_norm = np.linalg.norm(obj_vel_abs_vecs, axis=1)
-        # obj_v_vecs_norm_reshape = obj_v_vecs_norm.reshape(-1,1)
-        # obj_v_vecs_norm_reshape = np.tile(obj_v_vecs_norm_reshape, (1, 3))
-        # e_vecs = obj_vel_abs_vecs/obj_v_vecs_norm_reshape
-        # alpha = np.random.uniform(size=len(her_indexes[0]))*0.2
-        # future_ag = [e_vecs[i]*alpha[i] for i in range(len(alpha))]
-        # transitions['g'][her_indexes] = transitions['ag'][her_indexes] + future_ag.copy()
+        ######### v4 after v origin ##########
+        # if batch_size == 256: set_trace()
+        obs = episode_batch['o'][episode_idxs[her_indexes], future_t]
+        obj_vel_abs_vecs = obs[:, 14:17]
+        obj_v_vecs_norm = np.linalg.norm(obj_vel_abs_vecs, axis=1)
+        obj_v_vecs_norm_reshape = obj_v_vecs_norm.reshape(-1,1)
+        obj_v_vecs_norm_reshape = np.tile(obj_v_vecs_norm_reshape, (1, 3))
+        e_vecs = obj_vel_abs_vecs/obj_v_vecs_norm_reshape
+        alpha = np.random.uniform(size=len(her_indexes[0]))*0.2
+        future_ag = [e_vecs[i]*alpha[i] for i in range(len(alpha))]
+        transitions['g'][her_indexes] = transitions['ag'][her_indexes] + future_ag.copy()
 
         ######### v3 , if v > v_threshold ##########    untested!!!
         # set_trace()
@@ -183,14 +182,11 @@ def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
         ########################################################################################
 
         # create a new dict to store all the original, KER, HER, AGER data.
-
         all_transitions = {key: transitions[key].copy()
                            for key in episode_batch.keys()}
 
-        ########################################################################################
-        # ----------------Goal-augmented ER---------------------------
-        # if n_GER:
-        if n_GER and grade_GER==0:
+        # ----------------Goal-augmented ER--------------------------- 
+        if n_GER:
             # when n_GER != 0
             for _ in range (n_GER):
                 PER_transitions = {key: transitions[key].copy()
@@ -202,61 +198,11 @@ def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
                 PER_transitions['g'][PER_indexes] = PER_future_g.copy()
                 for key in episode_batch.keys():
                     all_transitions[key] = np.vstack([all_transitions[key], PER_transitions[key].copy()])
-            # -----------------------End---------------------------
-            # After GER, the minibatch size enlarged
-            batch_size = batch_size * (1+n_GER)
-            batch_size_in_transitions =batch_size
-        ########################################################################################
+        # -----------------------End--------------------------- 
 
-        ########################################################################################
-        # ---------------- Added by Ray distance-GER ---------------------------
-        # ----------------Goal-augmented ER---------------------------
-        # if batch_size == 256:
-        #     set_trace()
-        # set_trace()
-        # n_GER = 6
-        # GER_para_dict = {}
-        # GER_para_dict = {'GER_index': index, 'radius': radius, 'n_GER_grade': n_GER_grade,}
-
-        if grade_GER:
-            GER_index_list=[]
-            radius_list = []
-            distance = err_distance
-            n_Grade = 5
-
-            # set_trace()
-            n_GER_grade = [int(i) for i in str(grade_GER)]
-
-            # n_GER_grade = [2,2,2,2,2] #G1
-            #n_GER_grade = [2,1,1,1,1]   #G2
-            # n_GER_grade = [4,1,1,1,1]   #G3
-            assert n_Grade == len(n_GER_grade)
-            for i in range(n_Grade):
-                index = np.where(future_offset >= 10*i)
-                GER_index_list.append(index)
-                radius_list.append(distance)
-                distance += 0.01
-            for n_GER, GER_index, radius in zip(n_GER_grade, GER_index_list, radius_list):
-                for i in range (n_GER):
-                    PER_transitions = {key: transitions[key].copy()
-                                       for key in episode_batch.keys()}
-                    ger_machine = ger_learning(env_name = env_name,err_distance=radius)
-                    # PER_indexes= np.array((range(0,batch_size)))
-                    HER_KER_future_ag = PER_transitions['g'][GER_index].copy()
-                    PER_future_g = ger_machine.process_goals(HER_KER_future_ag.copy())
-                    PER_transitions['g'][GER_index] = PER_future_g.copy()
-                    for key in episode_batch.keys():
-                        all_transitions[key] = np.vstack([all_transitions[key], PER_transitions[key][GER_index].copy()])
-            # -----------------------End----------------------------
-            # After GER, the minibatch size enlarged
-            batch_size = all_transitions['g'].shape[0]
-            batch_size_in_transitions =batch_size
-            # set_trace()
-        # ---------------- Added by Ray distance-GER ---------------------------
-        ########################################################################################
-
-
-
+        # After GER, the minibatch size enlarged
+        batch_size = batch_size * (1+n_GER)
+        batch_size_in_transitions =batch_size
 
         # Reconstruct info dictionary for reward  computation.
         info = {}

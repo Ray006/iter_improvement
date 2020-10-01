@@ -32,21 +32,42 @@ class ger_learning:
         return goals.copy()
         
     def generate_random_point_in_sphere(self,goals_len):
-        angle1s=np.random.random(size=goals_len)*2*pi
-        random_radians = np.random.random(size=goals_len)*2-1
+        angle1s=np.random.random(size=goals_len)*2*pi            # generate angles   0 --> 2pi
+        random_radians = np.random.random(size=goals_len)*2-1    # generate radians -1 --> 1
 
         agnle2s = []
         for rand_rad in random_radians:
             angle2=acos(rand_rad)
             agnle2s.append(angle2)
         agnle2s = np.asarray(agnle2s, dtype=np.float32)
-        rs=np.random.random(size=goals_len)**(1/3)
+        rs=np.random.random(size=goals_len)**(1/3)  # origin
+        # rs=np.random.random(size=goals_len)  # bad
 
         xs =[]
         ys = []
         zs = []
-        
-        if self.env_name == "FetchSlide-v1" or self.env_name == "BaxterSlide-v1":
+        # set_trace()
+
+        # if self.env_name == "BaxterSlide-v1":
+        #     for a1,a2,r in zip(angle1s,agnle2s,rs):
+        #         x=r*cos(a1)*sin(a2) * self.err_distance
+        #         y=r*sin(a1)*sin(a2) * self.err_distance
+        #         z= 0
+        #         xs.append(x)
+        #         ys.append(y)
+        #         zs.append(z)
+        # elif self.env_name == "FetchSlide-v1" or self.env_name == "FetchPickAndPlace-v1" or self.env_name == "FetchPush-v1" or self.env_name == "BaxterPickAndPlace-v1" or self.env_name == "BaxterPush-v1":
+        #     for a1,a2,r in zip(angle1s,agnle2s,rs):
+        #         x=r*cos(a1)*sin(a2) * self.err_distance
+        #         y=r*sin(a1)*sin(a2) * self.err_distance
+        #         z=r*cos(a2) * self.err_distance
+        #         xs.append(x)
+        #         ys.append(y)
+        #         zs.append(z)
+        # else:
+        #     assert("No such env :",self.env_name)
+
+        if self.env_name == "FetchSlide-v1" or self.env_name == "BaxterSlide-v1":     # origin
             for a1,a2,r in zip(angle1s,agnle2s,rs):
                 x=r*cos(a1)*sin(a2) * self.err_distance
                 y=r*sin(a1)*sin(a2) * self.err_distance
@@ -64,4 +85,5 @@ class ger_learning:
                 zs.append(z)
         else:
             assert("No such env :",self.env_name)
+
         return xs,ys,zs

@@ -82,15 +82,15 @@ def train(args, extra_args):
         seed=seed,
         total_timesteps=total_timesteps,
         save_path = args.save_path,
+        before_GER_minibatch_size=args.before_GER_minibatch_size,
         n_KER = args.n_KER,
-        before_GER_minibatch_size = args.before_GER_minibatch_size,
-        n_GER = args.n_GER,
-        n_translation = args.n_Tran,
+        n_GER=args.n_GER,
+        dynamic_KER=args.dyn_KER,
+        grade_GER=args.grade_GER,
         dynamic_mirror_origin = args.dyn_origin,
-        dynamic_KER = args.dyn_KER,
+        DDPG_n_batch = args.n_batch,
         **alg_kwargs
     )
-
     return model, env
 
 
@@ -217,16 +217,25 @@ def main(args):
     arg_parser = common_arg_parser()
     args, unknown_args = arg_parser.parse_known_args(args)
     extra_args = parse_cmdline_kwargs(unknown_args)
+
+    # =========modified by ray: log path and save path =============
     if args.log_path is not None:
-        # =========modifiy the log path with time=============
         time = datetime.datetime.now().strftime('%y_%a_%b_%d_%H:%M:%S:%f')
-        args.log_path = os.path.join(args.log_path,time)
-        # =====================================================
-    if args.save_path is not None:
-        # =========modifiy the save path with time=============
-        time = datetime.datetime.now().strftime('%y_%a_%b_%d_%H:%M:%S:%f')
-        args.save_path = os.path.join(args.save_path,time)
-        # =====================================================
+        path = args.log_path
+        args.log_path = os.path.join(path, 'log_data', time)
+        args.save_path = os.path.join(path, 'policies',time)
+    # ==============================================================
+
+    # if args.log_path is not None:
+    #     # =========modifiy the log path with time=============
+    #     time = datetime.datetime.now().strftime('%y_%a_%b_%d_%H:%M:%S:%f')
+    #     args.log_path = os.path.join(args.log_path,time)
+    #     # =====================================================
+    # if args.save_path is not None:
+    #     # =========modifiy the save path with time=============
+    #     time = datetime.datetime.now().strftime('%y_%a_%b_%d_%H:%M:%S:%f')
+    #     args.save_path = os.path.join(args.save_path,time)
+    #     # =====================================================
 
     if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
         rank = 0

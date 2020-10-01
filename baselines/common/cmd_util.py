@@ -172,12 +172,13 @@ def common_arg_parser():
     parser.add_argument('--log_path', help='Directory to save learning curve data.', default=None, type=str)
     parser.add_argument('--play', default=False, action='store_true')
     # added by ray to run iter
-    parser.add_argument('--n_KER', type=int, default=0)
     parser.add_argument('--before_GER_minibatch_size', type=int, default=None)
+    parser.add_argument('--n_KER', type=int, default=0)
     parser.add_argument('--n_GER', type=int, default=0)
-    parser.add_argument('--n_Tran', type=int, default=0)
-    parser.add_argument('--dyn_origin', type=str, default=False)
     parser.add_argument('--dyn_KER', type=int, default=0)
+    parser.add_argument('--grade_GER', type=int, default=0)
+    parser.add_argument('--dyn_origin', type=str, default=False)
+    parser.add_argument('--n_batch', type=int, default=40)
     return parser
 
 def robotics_arg_parser():

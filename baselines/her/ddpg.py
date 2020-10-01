@@ -25,7 +25,7 @@ class DDPG(object):
                  Q_lr, pi_lr, norm_eps, norm_clip, max_u, action_l2, clip_obs, scope, T,
                  rollout_batch_size, subtract_goals, relative_goals, clip_pos_returns, clip_return,
                  bc_loss, q_filter, num_demo, demo_batch_size, prm_loss_weight, aux_loss_weight,
-                 sample_transitions, gamma, reuse=False,n_GER=0,err_distance=0.05,env_name=None, **kwargs):
+                 sample_transitions, gamma, reuse=False,n_GER=0, grade_GER=0, err_distance=0.05,env_name=None, **kwargs):
         """Implementation of DDPG that is used in combination with Hindsight Experience Replay (HER).
             Added functionality to use demonstrations for training to Overcome exploration problem.
 
@@ -106,6 +106,7 @@ class DDPG(object):
         global DEMO_BUFFER
         DEMO_BUFFER = ReplayBuffer(buffer_shapes, buffer_size, self.T, self.sample_transitions) #initialize the demo buffer; in the same way as the primary data buffer
         self.n_GER= n_GER
+        self.grade_GER = grade_GER
         self.err_distance = err_distance
         self.env_name = env_name
     def _random_action(self, n):
@@ -195,13 +196,13 @@ class DDPG(object):
             global DEMO_BUFFER
             DEMO_BUFFER.store_episode(episode) # create the observation dict and append them into the demonstration buffer
             logger.debug("Demo buffer size currently ", DEMO_BUFFER.get_current_size()) #print out the demonstration buffer size
-
+            # set_trace() #no
             if update_stats:
                 # add transitions to normalizer to normalize the demo data as well
                 episode['o_2'] = episode['o'][:, 1:, :]
                 episode['ag_2'] = episode['ag'][:, 1:, :]
                 num_normalizing_transitions = transitions_in_episode_batch(episode)
-                transitions = self.sample_transitions(episode, num_normalizing_transitions,env_name = self.env_name,n_GER=self.n_GER,err_distance=self.err_distance)
+                transitions = self.sample_transitions(episode, num_normalizing_transitions,env_name = self.env_name,n_GER=self.n_GER, grade_GER=self.grade_GER, err_distance=self.err_distance)
 
                 o, g, ag = transitions['o'], transitions['g'], transitions['ag']
                 transitions['o'], transitions['g'] = self._preprocess_og(o, ag, g)
@@ -224,14 +225,14 @@ class DDPG(object):
         # if if_clear_buffer_first:
         #     self.buffer.clear_buffer()
         self.buffer.store_episode(episode_batch)
-
+        # set_trace()#1
         if update_stats:
             # add transitions to normalizer
             episode_batch['o_2'] = episode_batch['o'][:, 1:, :]
             episode_batch['ag_2'] = episode_batch['ag'][:, 1:, :]
             num_normalizing_transitions = transitions_in_episode_batch(episode_batch)
             transitions = self.sample_transitions(episode_batch, num_normalizing_transitions,env_name = self.env_name,
-                                                     n_GER=self.n_GER,
+                                                     n_GER=self.n_GER, grade_GER = self.grade_GER,
                                                     err_distance=self.err_distance)
 
             o, g, ag = transitions['o'], transitions['g'], transitions['ag']
@@ -266,6 +267,7 @@ class DDPG(object):
         self.pi_adam.update(pi_grad, self.pi_lr)
 
     def sample_batch(self):
+        # set_trace()#2
         if self.bc_loss: #use demonstration buffer to sample as well if bc_loss flag is set TRUE
             transitions = self.buffer.sample(self.batch_size - self.demo_batch_size)
             global DEMO_BUFFER
@@ -279,7 +281,7 @@ class DDPG(object):
             minibatch_for_KER  = int(self.batch_size/(self.n_GER+1))
             # minibatch_for_KER = 256, self.batch_size = 512, self.n_GER =1
             # minibatch_for_KER = 256, self.batch_size = 1024, self.n_GER =3
-            transitions = self.buffer.sample(minibatch_for_KER,env_name=self.env_name, n_GER=self.n_GER,err_distance=self.err_distance) #otherwise only sample from primary buffer
+            transitions = self.buffer.sample(minibatch_for_KER,env_name=self.env_name, n_GER=self.n_GER, grade_GER=self.grade_GER,err_distance=self.err_distance) #otherwise only sample from primary buffer
 
         o, o_2, g = transitions['o'], transitions['o_2'], transitions['g']
         ag, ag_2 = transitions['ag'], transitions['ag_2']

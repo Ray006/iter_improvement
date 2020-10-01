@@ -28,7 +28,7 @@ def mpi_average(value):
 
 def train(*, policy, rollout_worker, evaluator,
           n_epochs, n_test_rollouts, n_cycles, n_batches, policy_save_interval,
-          save_path, demo_file, env_name,n_KER, n_translation, **kwargs):
+          save_path, demo_file, env_name,n_KER, **kwargs):
     rank = MPI.COMM_WORLD.Get_rank()
 
     if save_path:
@@ -67,7 +67,7 @@ def train(*, policy, rollout_worker, evaluator,
             episodes = rollout_worker.generate_rollouts(terminate_ker=terminate_ker_now)
             # with KER
             # if (n_KER_number !=0) and terminate_ker_now==False:
-            if (n_KER !=0 or n_translation !=0):
+            if n_KER !=0:
                 for episode in episodes:
                     policy.store_episode(episode)
             # without KER
@@ -136,13 +136,15 @@ def learn(*, network, env, total_timesteps,
     override_params=None,
     load_path=None,
     save_path=None,
-    n_KER = 0,
+
     before_GER_minibatch_size = None,
+    n_KER = 0,
     n_GER = 0,
-    err_distance=0.05,
-    n_translation = 0,
-    dynamic_mirror_origin=False,
     dynamic_KER = 0,
+    grade_GER = 0,
+    dynamic_mirror_origin=False,
+    DDPG_n_batch = 40,
+    err_distance=0.05,
     **kwargs
 ):
 
@@ -158,6 +160,8 @@ def learn(*, network, env, total_timesteps,
 
     # Prepare params.
     params = config.DEFAULT_PARAMS
+    if DDPG_n_batch is not None:
+        params['n_batches'] = DDPG_n_batch
     if before_GER_minibatch_size is not None and n_GER is not None :
         params['batch_size'] = before_GER_minibatch_size * (n_GER+1)
     env_name = env.spec.id
@@ -178,15 +182,21 @@ def learn(*, network, env, total_timesteps,
     config.log_params(params, logger=logger)
 
 
+
     logger.warn()
     logger.warn('--- n_KER:', n_KER)
     logger.warn('--- n_GER:', n_GER)
-    logger.warn('--- n_Tran:', n_translation)
-    logger.warn('--- dyn_mirror_origin(with 180 angles):', dynamic_mirror_origin)
     logger.warn('--- dyn_KER:', dynamic_KER)
-    logger.warn('--- if dyn_mirror_origin=0, max_theta is 0.1443')
-    logger.warn('--- n_batch has not tuned, now is 40')
+    logger.warn('--- grade_GER:', grade_GER)
+    logger.warn('--- dyn_origin:', dynamic_mirror_origin)
+    logger.warn('--- DDPG_n_batch:', DDPG_n_batch)
+    logger.warn('if dyn_mirror_origin=0, max_theta is 0.1443, else pi/2, if slide, 30 degrees. '+
+                'Need to study: slide fake goals in the air')
     logger.warn()
+
+    # from ipdb import set_trace
+    # set_trace()
+
 
     if num_cpu == 1:
         logger.warn()
@@ -202,7 +212,7 @@ def learn(*, network, env, total_timesteps,
 
     dims = config.configure_dims(params)
     policy = config.configure_ddpg(dims=dims, params=params, clip_return=clip_return,
-                                    n_GER=n_GER,err_distance=err_distance,env_name=env_name)
+                                    n_GER=n_GER, grade_GER=grade_GER, err_distance=err_distance,env_name=env_name)
     if load_path is not None:
         tf_util.load_variables(load_path)
 
@@ -229,7 +239,7 @@ def learn(*, network, env, total_timesteps,
     eval_env = eval_env or env
 
 
-    rollout_worker = RolloutWorker(env_name, env, policy, dims, logger, monitor=True,n_KER=n_KER, n_translation=n_translation,
+    rollout_worker = RolloutWorker(env_name, env, policy, dims, logger, monitor=True,n_KER=n_KER,
                                    dynamic_mirror_origin=dynamic_mirror_origin, dynamic_KER =dynamic_KER, **rollout_params)
     evaluator = RolloutWorker(env_name,eval_env, policy, dims, logger, **eval_params)
 
@@ -240,7 +250,7 @@ def learn(*, network, env, total_timesteps,
         save_path=save_path, policy=policy, rollout_worker=rollout_worker,
         evaluator=evaluator, n_epochs=n_epochs, n_test_rollouts=params['n_test_rollouts'],
         n_cycles=params['n_cycles'], n_batches=params['n_batches'],
-        policy_save_interval=policy_save_interval, demo_file=demo_file,env_name=env_name, n_KER = n_KER, n_translation=n_translation)
+        policy_save_interval=policy_save_interval, demo_file=demo_file,env_name=env_name, n_KER = n_KER)
 
 
 @click.command()
