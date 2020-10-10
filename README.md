@@ -11,7 +11,10 @@ These algorithms will make it easier for the research community to replicate, re
 ## Prerequisites 
 Baselines requires python3 (>=3.5) with the development headers. You'll also need system packages CMake, OpenMPI and zlib. Those can be installed as follows
 ### Ubuntu 
-    
+```bash
+taskset --cpu-list 0-2 python -m baselines.run --alg=her --env=FetchPickAndPlace-v1 --num_timesteps=2e6 --n_cycles=100 --log_path=/home/data/Ray_data/iter_data/PickAndPlace_KER32_4GER --before_GER_minibatch_size=256 --n_KER=32 --n_GER=4
+```
+
 ```bash
 sudo apt-get update && sudo apt-get install cmake libopenmpi-dev python3-dev zlib1g-dev
 ```
