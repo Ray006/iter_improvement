@@ -51,7 +51,7 @@ def train(*, policy, rollout_worker, evaluator,
     if_clear_buffer = False
     for epoch in range(n_epochs):
         # train
-        
+
         # #Terminate KER during training or not 
         # if (single_suc_rate_threshold is not None) and (n_KER_number !=0):
         #     # int(xxx*10) to get rid of the float, and just enter once to terminate KER.
@@ -84,11 +84,13 @@ def train(*, policy, rollout_worker, evaluator,
             policy.update_target_net()
         policy.save(save_path)
 
+
         # test
         evaluator.clear_history()
         for _ in range(n_test_rollouts):
             evaluator.generate_rollouts()
 
+        # set_trace()
         # record logs
         logger.record_tabular('epoch', epoch)
         for key, val in evaluator.logs('test'):
