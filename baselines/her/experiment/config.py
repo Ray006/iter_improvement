@@ -184,6 +184,10 @@ def configure_ddpg(dims, params, reuse=False, use_mpi=True, clip_return=True, n_
         'env_name': params['env_name'],
     }
     policy = DDPG(reuse=reuse, env_name = env_name, n_GER=n_GER, grade_GER=grade_GER, err_distance=err_distance, **ddpg_params, use_mpi=use_mpi)
+    
+    # from ipdb import set_trace
+    # set_trace()
+
     return policy
 
 

@@ -10,10 +10,12 @@ from baselines.common import set_global_seeds, tf_util
 from baselines.common.mpi_moments import mpi_moments
 import baselines.her.experiment.config as config
 from baselines.her.rollout import RolloutWorker
-from ipdb import set_trace
 from tensorboardX import SummaryWriter
 from baselines.her.ker_learning_method import SINGLE_SUC_RATE_THRESHOLD,IF_CLEAR_BUFFER
 
+from ipdb import set_trace
+# set_trace()
+from baselines.her.MB.model_based import MB_class
 
 writer = SummaryWriter()
 
@@ -28,8 +30,14 @@ def mpi_average(value):
 
 def train(*, policy, rollout_worker, evaluator,
           n_epochs, n_test_rollouts, n_cycles, n_batches, policy_save_interval,
-          save_path, demo_file, env_name,n_KER, **kwargs):
+          save_path, demo_file, env_name,n_KER, dynamic_model, **kwargs):
+
     rank = MPI.COMM_WORLD.Get_rank()
+    MB = dynamic_model
+
+    # set_trace()
+    # mb_init()
+    
 
     if save_path:
         latest_policy_path = os.path.join(save_path, 'policy_latest.pkl')
@@ -49,16 +57,10 @@ def train(*, policy, rollout_worker, evaluator,
     single_suc_rate_threshold = SINGLE_SUC_RATE_THRESHOLD
     terminate_ker_now = False
     if_clear_buffer = False
+
+
     for epoch in range(n_epochs):
         # train
-
-        # #Terminate KER during training or not 
-        # if (single_suc_rate_threshold is not None) and (n_KER_number !=0):
-        #     # int(xxx*10) to get rid of the float, and just enter once to terminate KER.
-        #     if (int(test_suc_rate*10) == int(single_suc_rate_threshold*10) ) and first_time_enter:
-        #         first_time_enter = False
-        #         if_clear_buffer = IF_CLEAR_BUFFER
-        #         terminate_ker_now = True
 
         rollout_worker.clear_history()
         for _ in range(n_cycles):
@@ -70,20 +72,28 @@ def train(*, policy, rollout_worker, evaluator,
             if n_KER !=0:
                 for episode in episodes:
                     policy.store_episode(episode)
+                    MB.store_rollout(episodes)
             # without KER
             else:
                 policy.store_episode(episodes)
                 # HER/DDPG do not need clear buffer
                 if_clear_buffer = False
+                MB.store_rollout(episodes)
 
-            # set_trace()
-            # n_batches = 2
+            # if len(MB.rollouts)/50 == 0:
+            #     MB.run_job()
+                # set_trace()
+                
 
             for _ in range(n_batches):
-                policy.train()
+                if epoch!=0:                        
+                    policy.train(MB_dyn=MB.dyn_models)  ## if dyn model is trained, use it.
+                else:
+                    policy.train()
             policy.update_target_net()
         policy.save(save_path)
 
+        MB.run_job()
 
         # test
         evaluator.clear_history()
@@ -215,6 +225,10 @@ def learn(*, network, env, total_timesteps,
     dims = config.configure_dims(params)
     policy = config.configure_ddpg(dims=dims, params=params, clip_return=clip_return,
                                     n_GER=n_GER, grade_GER=grade_GER, err_distance=err_distance,env_name=env_name)
+    
+    # set_trace()
+    MB = MB_class(buffer_size=500000, dims=dims, sess=policy.sess)
+    
     if load_path is not None:
         tf_util.load_variables(load_path)
 
@@ -252,7 +266,8 @@ def learn(*, network, env, total_timesteps,
         save_path=save_path, policy=policy, rollout_worker=rollout_worker,
         evaluator=evaluator, n_epochs=n_epochs, n_test_rollouts=params['n_test_rollouts'],
         n_cycles=params['n_cycles'], n_batches=params['n_batches'],
-        policy_save_interval=policy_save_interval, demo_file=demo_file,env_name=env_name, n_KER = n_KER)
+        policy_save_interval=policy_save_interval, demo_file=demo_file,env_name=env_name, n_KER = n_KER,
+        dynamic_model=MB)
 
 
 @click.command()

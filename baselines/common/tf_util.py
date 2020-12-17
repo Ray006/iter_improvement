@@ -48,6 +48,23 @@ def huber_loss(x, delta=1.0):
 # Global session
 # ================================================================
 
+def get_session_by_ray(config=None):
+
+    # sess1 = tf.get_default_session()
+
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
+    config = tf.ConfigProto(
+        gpu_options=gpu_options,
+        log_device_placement=False,
+        allow_soft_placement=True,
+        inter_op_parallelism_threads=1,
+        intra_op_parallelism_threads=1)
+
+    sess = tf.InteractiveSession(config=config)
+
+    return sess
+
+
 def get_session(config=None):
     """Get default session or create one with a given config"""
     sess = tf.get_default_session()

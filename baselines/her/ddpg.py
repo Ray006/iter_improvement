@@ -109,6 +109,7 @@ class DDPG(object):
         self.grade_GER = grade_GER
         self.err_distance = err_distance
         self.env_name = env_name
+
     def _random_action(self, n):
         return np.random.uniform(low=-self.max_u, high=self.max_u, size=(n, self.dimu))
 
@@ -288,8 +289,83 @@ class DDPG(object):
         transitions['o'], transitions['g'] = self._preprocess_og(o, ag, g)
         transitions['o_2'], transitions['g_2'] = self._preprocess_og(o_2, ag_2, g)
 
+        #### keys(['g', 'o', 'u', 'o_2', 'g_2', 'r'])
         transitions_batch = [transitions[key] for key in self.stage_shapes.keys()]
+        
+        # set_trace()#  use agent to interacte with the model here!!!
+
+        try:
+            transitions_batch = self.model_augmented_data(transitions_batch)
+        except:
+            pass
+
         return transitions_batch
+
+    def model_augmented_data(self, batch_data):   ### V2
+        transitions = batch_data
+        
+        g = transitions[0]
+        # o = transitions[1]
+        o = transitions[3]
+        
+        for i in range(5):
+
+            new_a = self.get_actions(o=o, ag='no need', g=g)
+
+            new_o_2 = self.dyn_model.do_1step_forward_sim(o,new_a)
+            new_o_2 = np.mean(new_o_2, axis=0)   ### use mean or not use?
+
+            ### assume that the reward function is known
+            new_ag = new_o_2[:,3:6]         
+            d = np.linalg.norm(new_ag - g, axis=-1)
+            new_rew = -(d > 0.05).astype(np.float32)
+            
+            #### keys(['g', 'o', 'u', 'o_2', 'g_2', 'r'])
+            batch_data[0] = np.concatenate((batch_data[0],g),axis=0)
+            batch_data[1] = np.concatenate((batch_data[1],o),axis=0)
+            batch_data[2] = np.concatenate((batch_data[2],new_a),axis=0)
+            batch_data[3] = np.concatenate((batch_data[3],new_o_2),axis=0)
+            batch_data[4] = np.concatenate((batch_data[4],g),axis=0)
+            batch_data[5] = np.concatenate((batch_data[5],new_rew),axis=0)
+
+            o = new_o_2
+
+        # set_trace()
+        return batch_data
+
+    # def model_augmented_data(self, batch_data):   ### V1
+    #     transitions = batch_data
+        
+    #     g = transitions[0]
+    #     # o = transitions[1]
+    #     o = transitions[3]
+        
+    #     new_a = self.get_actions(o=o, ag='no need', g=g)
+
+    #     new_o_2 = self.dyn_model.do_1step_forward_sim(o,new_a)
+    #     new_o_2 = np.mean(new_o_2, axis=0)   ### use mean or not use?
+        
+    #     # set_trace()
+
+    #     ### assume that the reward function is known
+    #     new_ag = new_o_2[:,3:6]         
+    #     d = np.linalg.norm(new_ag - g, axis=-1)
+    #     new_rew = -(d > 0.05).astype(np.float32)
+        
+    #     #### keys(['g', 'o', 'u', 'o_2', 'g_2', 'r'])
+    #     batch_data[0] = np.concatenate((batch_data[0],batch_data[0]),axis=0)
+    #     batch_data[1] = np.concatenate((batch_data[1],o),axis=0)
+    #     batch_data[2] = np.concatenate((batch_data[2],new_a),axis=0)
+    #     batch_data[3] = np.concatenate((batch_data[3],new_o_2),axis=0)
+    #     batch_data[4] = np.concatenate((batch_data[4],batch_data[4]),axis=0)
+    #     batch_data[5] = np.concatenate((batch_data[5],new_rew),axis=0)
+
+    #     return batch_data
+        
+        
+
+
+
 
     def stage_batch(self, batch=None):
         if batch is None:
@@ -297,7 +373,9 @@ class DDPG(object):
         assert len(self.buffer_ph_tf) == len(batch)
         self.sess.run(self.stage_op, feed_dict=dict(zip(self.buffer_ph_tf, batch)))
 
-    def train(self, stage=True):
+    def train(self, stage=True, MB_dyn=None):
+        if MB_dyn!=None:
+            self.dyn_model = MB_dyn
         if stage:
             self.stage_batch()
         critic_loss, actor_loss, Q_grad, pi_grad = self._grads()
@@ -324,7 +402,15 @@ class DDPG(object):
 
     def _create_network(self, reuse=False):
         logger.info("Creating a DDPG agent with action space %d x %s..." % (self.dimu, self.max_u))
-        self.sess = tf_util.get_session()
+        
+        # from ipdb import set_trace
+        # set_trace()
+
+        self.sess = tf_util.get_session_by_ray()
+        # ### this config added by ray for the dynamics model training
+
+
+        # self.sess = tf_util.get_session()   ## origin version
 
         # running averages
         with tf.variable_scope('o_stats') as vs:
@@ -408,6 +494,9 @@ class DDPG(object):
         self.update_target_net_op = list(
             map(lambda v: v[0].assign(self.polyak * v[0] + (1. - self.polyak) * v[1]), zip(self.target_vars, self.main_vars)))
 
+        # set_trace()
+        # print(tf.global_variables())
+        
         # initialize all variables
         tf.variables_initializer(self._global_vars('')).run()
         self._sync_optimizers()
