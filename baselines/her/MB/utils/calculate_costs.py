@@ -13,19 +13,19 @@
 # limitations under the License.
 
 import numpy as np
+from ipdb import set_trace
 
-def cost_per_step(pt, prev_pt, costs, actions, dones, reward_func):
-    step_rews, step_dones = reward_func(pt, actions)
+def cost_per_step(pt, prev_pt, costs, goal):
+    
+    ### assume that the reward function is known
+    new_ag = pt[:,3:6]         
+    d = np.linalg.norm(new_ag - goal, axis=-1)
+    step_rews = -(d > 0.05).astype(np.float32)
 
-    dones = np.logical_or(dones, step_dones)
-    costs[dones > 0] += 500
-    costs[dones == 0] -= step_rews[dones == 0]
+    costs -= step_rews
+    return costs
 
-    return costs, dones
-
-
-def calculate_costs(resulting_states_list, actions, reward_func,
-                    evaluating, take_exploratory_actions):
+def calculate_costs(resulting_states_list, goal):
     """Rank various predicted trajectories (by cost)
 
     Args:
@@ -49,8 +49,6 @@ def calculate_costs(resulting_states_list, actions, reward_func,
     """
 
     ensemble_size = len(resulting_states_list)
-    tiled_actions = np.tile(actions, (ensemble_size, 1, 1))
-
     ###########################################################
     ## some reshaping of the predicted trajectories to rate
     ###########################################################
@@ -75,27 +73,16 @@ def calculate_costs(resulting_states_list, actions, reward_func,
     #init vars for calculating costs
     costs = np.zeros((N * len(resulting_states_list),))
     prev_pt = resulting_states[0]
-    dones = np.zeros((N * len(resulting_states_list),))
 
+    # set_trace()
     #accumulate cost over each timestep
     for pt_number in range(len(resulting_states_list[0]) - 1):
 
         #array of "current datapoint" [(ensemble_size*N) x state]
         pt = resulting_states[pt_number + 1]
-        #update cost at the next timestep of the H-step rollout
-        actions_per_step = tiled_actions[:, pt_number]
-        costs, dones = cost_per_step(pt, prev_pt, costs, actions_per_step, dones, reward_func)
+        costs = cost_per_step(pt, prev_pt, costs, goal)
         #update
         prev_pt = np.copy(pt)
-
-    ###########################################################
-    ## assigns costs associated with each predicted trajectory
-    ####### need to consider each ensemble separately again
-    ####### perform ranking based on either
-    #"mean costs" over ensemble predictions (for a given action sequence A)
-    # or
-    #"model disagreement" over ensemble predictions (for a given action sequence A)
-    ###########################################################
 
     #consolidate costs (ensemble_size*N) --> (N)
     new_costs = []
@@ -107,15 +94,5 @@ def calculate_costs(resulting_states_list, actions, reward_func,
     mean_cost = np.mean(new_costs, 1)
     std_cost = np.std(new_costs, 1)
 
-    #rank by rewards
-    if evaluating:
-        cost_for_ranking = mean_cost
-    #sometimes rank by model disagreement, and sometimes rank by rewards
-    else:
-        if take_exploratory_actions:
-            cost_for_ranking = mean_cost - 4 * std_cost
-            print("   ****** taking exploratory actions for this rollout")
-        else:
-            cost_for_ranking = mean_cost
 
-    return cost_for_ranking, mean_cost, std_cost
+    return mean_cost, std_cost

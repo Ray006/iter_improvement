@@ -42,11 +42,13 @@ from baselines.her.MB.utils.data_structures import *
 from baselines.her.MB.utils.convert_to_parser_args import convert_to_parser_args
 from baselines.her.MB.utils import config_reader
 
+from baselines.her.MB.policies.mppi import MPPI
+
 SCRIPT_DIR = os.path.dirname(__file__)
 
 
 class MB_class:
-    def __init__(self, buffer_size, dims, sess):
+    def __init__(self, buffer_size, dims, policy):
         self.buffer_size = buffer_size
         self.rollouts = []
         # self.num_data = 0
@@ -78,6 +80,7 @@ class MB_class:
                     'num_fc_layers': [2],
                     'depth_fc_layers': [400],
                     'ensemble_size': [3],
+                    # 'ensemble_size': [5],
                     'K': [1],
                     ## model training
                     'warmstart_training': [False],
@@ -90,7 +93,7 @@ class MB_class:
                     ##### controller
                     ##########################
                     ## MPC
-                    'horizon': [20],
+                    'horizon': [5],
                     'num_control_samples': [500],
                     'controller_type': ['mppi'],
                     ## mppi
@@ -120,15 +123,15 @@ class MB_class:
 
         # self.sess = tf.Session(config=get_gpu_config(self.args.use_gpu, self.args.gpu_frac))
         
-        self.sess = sess
-
         ### init model
         s_dim, a_dim = dims['o'], dims['u']
         inputSize = s_dim + a_dim
         outputSize = s_dim
         acSize = a_dim
 
-        self.dyn_models = Dyn_Model(inputSize, outputSize, acSize, self.sess, params=self.args)
+        self.dyn_models = Dyn_Model(inputSize, outputSize, acSize, policy, params=self.args)
+        self.planner = MPPI(self.dyn_models, a_dim, params=self.args)
+        self.model_was_learned = False
 
 
     def store_rollout(self, episode):
@@ -169,7 +172,7 @@ class MB_class:
         return rollouts_train, rollouts_val
 
     def run_job(self):  ## v3, outside session 
-
+        self.model_was_learned = True
         ### get data from the buffer
         rollouts_trainOnPol, rollouts_valOnPol = self.get_rollout()
         #convert (rollouts --> dataset)

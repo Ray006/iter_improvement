@@ -80,17 +80,33 @@ def train(*, policy, rollout_worker, evaluator,
                 if_clear_buffer = False
                 MB.store_rollout(episodes)
 
-            # if len(MB.rollouts)/50 == 0:
-            #     MB.run_job()
-                # set_trace()
-                
-
             for _ in range(n_batches):
                 if epoch!=0:                        
                     policy.train(MB_dyn=MB.dyn_models)  ## if dyn model is trained, use it.
                 else:
                     policy.train()
             policy.update_target_net()
+
+            # ### v2, more 1 round
+            # for _n in range(2):
+            #     for _ in range(n_batches):
+            #         if epoch!=0:                        
+            #             policy.train(MB_dyn=MB.dyn_models)  ## if dyn model is trained, use it.
+            #         else:
+            #             policy.train()
+            #     policy.update_target_net()
+
+
+            # ## v1, update target net one more time
+            # for n_b in range(n_batches):
+            #     if epoch!=0:                        
+            #         policy.train(MB_dyn=MB.dyn_models)  ## if dyn model is trained, use it.
+            #     else:
+            #         policy.train()
+            #     if n_b == int(n_batches/2):
+            #         policy.update_target_net()
+            # policy.update_target_net()
+
         policy.save(save_path)
 
         MB.run_job()
@@ -227,13 +243,14 @@ def learn(*, network, env, total_timesteps,
                                     n_GER=n_GER, grade_GER=grade_GER, err_distance=err_distance,env_name=env_name)
     
     # set_trace()
-    MB = MB_class(buffer_size=500000, dims=dims, sess=policy.sess)
+    MB = MB_class(buffer_size=500000, dims=dims, policy=policy)
     
     if load_path is not None:
         tf_util.load_variables(load_path)
 
     rollout_params = {
         'exploit': False,
+        # 'exploit': True,
         'use_target_net': False,
         'use_demo_states': True,
         'compute_Q': False,
@@ -255,9 +272,19 @@ def learn(*, network, env, total_timesteps,
     eval_env = eval_env or env
 
 
-    rollout_worker = RolloutWorker(env_name, env, policy, dims, logger, monitor=True,n_KER=n_KER,
-                                   dynamic_mirror_origin=dynamic_mirror_origin, dynamic_KER =dynamic_KER, **rollout_params)
-    evaluator = RolloutWorker(env_name,eval_env, policy, dims, logger, **eval_params)
+    # rollout_worker = RolloutWorker(env_name, env, policy, dims, logger, 
+    #                                monitor=True,n_KER=n_KER,
+    #                                dynamic_mirror_origin=dynamic_mirror_origin, 
+    #                                dynamic_KER =dynamic_KER, 
+    #                                **rollout_params)
+    # evaluator = RolloutWorker(env_name,eval_env, policy, dims, logger, **eval_params)
+    rollout_worker = RolloutWorker(env_name, env, policy, dims, logger, 
+                                   monitor=True,n_KER=n_KER,
+                                   dynamic_mirror_origin=dynamic_mirror_origin, 
+                                   dynamic_KER =dynamic_KER, 
+                                   mb=MB,
+                                   **rollout_params)
+    evaluator = RolloutWorker(env_name,eval_env, policy, dims, logger, mb=MB, **eval_params)
 
     n_cycles = params['n_cycles']
     n_epochs = total_timesteps // n_cycles // rollout_worker.T // rollout_worker.rollout_batch_size

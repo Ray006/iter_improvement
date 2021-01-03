@@ -64,7 +64,7 @@ class DDPG(object):
         """
         if self.clip_return is None:
             self.clip_return = np.inf
-
+        # set_trace()
         self.create_actor_critic = import_function(self.network_class)
 
         input_shapes = dims_to_shapes(self.input_dims)
@@ -129,6 +129,64 @@ class DDPG(object):
         return actions, None, None, None
 
 
+    # def get_actions(self, o, ag, g, noise_eps=0., random_eps=0., use_target_net=False,
+    #                 compute_Q=False):
+    #     o, g = self._preprocess_og(o, ag, g)
+    #     policy = self.target if use_target_net else self.main
+
+
+    #     set_trace()
+    #     compute_Q = True
+        
+    #     # values to compute
+    #     vals = [policy.pi_tf]
+    #     if compute_Q:
+    #         vals += [policy.Q_pi_tf]
+    #     # feed
+    #     feed = {
+    #         policy.o_tf: o.reshape(-1, self.dimo),
+    #         policy.g_tf: g.reshape(-1, self.dimg),
+    #         policy.u_tf: np.zeros((o.size // self.dimo, self.dimu), dtype=np.float32)
+    #     }
+
+    #     ret = self.sess.run(vals, feed_dict=feed)
+
+    #     for _ in range(10):
+    #         set_trace()
+    #         compute_Q = True
+            
+    #         # values to compute
+    #         vals = [policy.pi_tf]
+    #         if compute_Q:
+    #             vals += [policy.Q_pi_tf]
+    #         # feed
+    #         feed = {
+    #             policy.o_tf: o.reshape(-1, self.dimo),
+    #             policy.g_tf: g.reshape(-1, self.dimg),
+    #             policy.u_tf: np.zeros((o.size // self.dimo, self.dimu), dtype=np.float32)
+    #         }
+
+    #         ret = self.sess.run(vals, feed_dict=feed)
+
+
+
+    #     # action postprocessing
+    #     u = ret[0]
+    #     noise = noise_eps * self.max_u * np.random.randn(*u.shape)  # gaussian noise
+    #     u += noise
+    #     u = np.clip(u, -self.max_u, self.max_u)
+    #     u += np.random.binomial(1, random_eps, u.shape[0]).reshape(-1, 1) * (self._random_action(u.shape[0]) - u)  # eps-greedy
+    #     if u.shape[0] == 1:
+    #         u = u[0]
+    #     u = u.copy()
+    #     ret[0] = u
+
+    #     if len(ret) == 1:
+    #         return ret[0]
+    #     else:
+    #         return ret
+
+    ### origin
     def get_actions(self, o, ag, g, noise_eps=0., random_eps=0., use_target_net=False,
                     compute_Q=False):
         o, g = self._preprocess_og(o, ag, g)
@@ -293,7 +351,6 @@ class DDPG(object):
         transitions_batch = [transitions[key] for key in self.stage_shapes.keys()]
         
         # set_trace()#  use agent to interacte with the model here!!!
-
         try:
             transitions_batch = self.model_augmented_data(transitions_batch)
         except:
@@ -301,16 +358,102 @@ class DDPG(object):
 
         return transitions_batch
 
-    def model_augmented_data(self, batch_data):   ### V2
-        transitions = batch_data
+    # #### by ray
+    # def model_augmented_data(self, transitions):   ### V3, work badly, rate and true transitions
+    #     # set_trace()
         
-        g = transitions[0]
-        # o = transitions[1]
-        o = transitions[3]
-        
-        for i in range(5):
+    #     rate = int(self.batch_size*(1/2))  ### keep rate
 
-            new_a = self.get_actions(o=o, ag='no need', g=g)
+    #     batch_data = [transitions[i][:rate] for i in range(len(transitions))]   ### keep a part of original data.
+
+    #     g = transitions[0][rate:]   ### the rest of data used for interating with dynamics model.
+    #     o = transitions[1][rate:]
+    #     # o = transitions[3]
+        
+    #     for i in range(2):
+
+    #         new_a = self.get_actions(o=o, ag='no need', g=g)
+
+    #         new_o_2 = self.dyn_model.do_1step_forward_sim(o,new_a)
+    #         new_o_2 = np.mean(new_o_2, axis=0)   ### use mean or not use?
+
+    #         ### assume that the reward function is known
+    #         new_ag = new_o_2[:,3:6]         
+    #         d = np.linalg.norm(new_ag - g, axis=-1)
+    #         new_rew = -(d > 0.05).astype(np.float32)
+            
+    #         #### keys(['g', 'o', 'u', 'o_2', 'g_2', 'r'])
+    #         batch_data[0] = np.concatenate((batch_data[0],g),axis=0)
+    #         batch_data[1] = np.concatenate((batch_data[1],o),axis=0)
+    #         batch_data[2] = np.concatenate((batch_data[2],new_a),axis=0)
+    #         batch_data[3] = np.concatenate((batch_data[3],new_o_2),axis=0)
+    #         batch_data[4] = np.concatenate((batch_data[4],g),axis=0)
+    #         batch_data[5] = np.concatenate((batch_data[5],new_rew),axis=0)
+
+    #         o = new_o_2
+    #     # set_trace()
+    #     return batch_data
+
+    # def model_augmented_data(self, batch_data):   ### V4, disagreement, get action with noise
+    #         # set_trace()
+    #         transitions = batch_data
+
+    #         rate = int(self.batch_size/2)
+
+    #         g = transitions[0]
+    #         o = transitions[1]
+    #         # o = transitions[3]
+            
+    #         for i in range(2):
+                
+    #             new_a = self.get_actions(o=o, ag='no need', g=g)
+    #             # new_a = self.get_actions(o=o, ag='no need', g=g, noise_eps = 0.2, random_eps=0.3)
+                
+    #             new_o_2 = self.dyn_model.do_1step_forward_sim(o,new_a)
+    #             o_mean = np.mean(new_o_2, axis=0)   ### use mean or not use?
+    #             o_std = new_o_2.std(axis=0)
+    #             o_std_mean = o_std.mean(axis=1)              
+
+    #             idx_all = np.argsort(o_std_mean)
+    #             # o_std_mean=np.sort(o_std_mean)
+
+    #             # idx_rate = idx_all[:rate]  
+    #             idx_rate = idx_all[rate:]  
+
+    #             # set_trace()
+
+    #             ### assume that the reward function is known
+    #             new_ag = o_mean[:,3:6]         
+    #             d = np.linalg.norm(new_ag - g, axis=-1)
+    #             new_rew = -(d > 0.05).astype(np.float32)
+                
+    #             #### keys(['g', 'o', 'u', 'o_2', 'g_2', 'r'])
+    #             batch_data[0] = np.concatenate((batch_data[0],g[idx_rate]),axis=0)
+    #             batch_data[1] = np.concatenate((batch_data[1],o[idx_rate]),axis=0)
+    #             batch_data[2] = np.concatenate((batch_data[2],new_a[idx_rate]),axis=0)
+    #             batch_data[3] = np.concatenate((batch_data[3],o_mean[idx_rate]),axis=0)
+    #             batch_data[4] = np.concatenate((batch_data[4],g[idx_rate]),axis=0)
+    #             batch_data[5] = np.concatenate((batch_data[5],new_rew[idx_rate]),axis=0)
+
+    #             o = o_mean
+    #         # set_trace()
+    #         return batch_data
+
+    def model_augmented_data(self, batch_data):   ### V2, work well
+        # set_trace()
+        transitions = batch_data
+
+        # rate = int(self.batch_size/2)
+        rate = self.batch_size
+
+        g = transitions[0][:rate]
+        o = transitions[1][:rate]
+        # o = transitions[3]
+        
+        for i in range(2):
+
+            # new_a = self.get_actions(o=o, ag='no need', g=g)
+            new_a = self.get_actions(o=o, ag='no need', g=g, noise_eps = 0.2, random_eps=0.3)
 
             new_o_2 = self.dyn_model.do_1step_forward_sim(o,new_a)
             new_o_2 = np.mean(new_o_2, axis=0)   ### use mean or not use?
@@ -329,7 +472,6 @@ class DDPG(object):
             batch_data[5] = np.concatenate((batch_data[5],new_rew),axis=0)
 
             o = new_o_2
-
         # set_trace()
         return batch_data
 

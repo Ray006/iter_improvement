@@ -32,7 +32,7 @@ class Dyn_Model:
                  inputSize,
                  outputSize,
                  acSize,
-                 sess,
+                 policy,
                  params,
                  normalization_data=None):
 
@@ -41,7 +41,8 @@ class Dyn_Model:
         self.outputSize = outputSize
         self.acSize = acSize
         self.normalization_data = normalization_data
-        self.sess = sess
+        self.sess = policy.sess
+        self.get_ddpg_act = policy.get_actions
 
         # params
         self.params = params
@@ -342,27 +343,23 @@ class Dyn_Model:
     #############################################################
 
     #forward-simulate multiple different action sequences at once
-    def do_forward_sim(self, states_true, actions_toPerform):
+    def do_forward_sim(self, states, goal, actions):
 
-        #init vars
         state_list = []
-        N = actions_toPerform.shape[0]
-        horizon = actions_toPerform.shape[1]  # actions_toPerform: [N, horizon, K, aDim]
+        horizon = self.params.horizon
+        N = self.params.num_control_samples
 
-        # states_true [K,N,sDim] --> curr_states_NK [N, K, sDim]
-        if (not (len(states_true) == 2 and states_true[1] == 0)):
-            if len(states_true.shape) > 2:
-                curr_states_NK = np.swapaxes(states_true, 0, 1)
+        # set_trace()
 
-        # states_true [K, sDim] --> [1, K, sDim] --> curr_states_NK [N, K, sDim]
-        else:
-            # mppi/etc. sets the 2nd entry to just junk... like [state, 0]
-            # telling you to copy the first one N times (one for each simultaneous sim)
-            curr_states_NK = np.tile(
-                np.expand_dims(states_true[0], 0), (N, 1, 1))
-
+        # curr_states_NK = np.swapaxes(states_true, 0, 1)
         #curr_states_NK: [ens, N, K, sDim]
-        curr_states_NK = np.tile(curr_states_NK, (self.ensemble_size, 1, 1, 1))
+        curr_states_NK = np.tile(states, (self.ensemble_size, N, 1, 1))
+        goal_tile = np.tile(goal, (self.ensemble_size, N, 1, 1))
+
+        actions_toPerform = np.tile(actions, (self.ensemble_size, 1, 1, 1))
+        curr_actions_NK = np.swapaxes(actions_toPerform, 1, 2)
+        
+        # self.get_ddpg_act()
 
         #advance all N sims, one timestep at a time
         for timestep in range(horizon):
@@ -370,10 +367,10 @@ class Dyn_Model:
             #curr_states_pastTimestep: [ens, N, sDim]
             curr_states_pastTimestep = curr_states_NK[:, :,-1, :]
 
-            # actions_toPerform: [N, horizon, K, aDim]
-            curr_actions_NK = actions_toPerform[:, timestep, :, :]
-            # curr_actions_NK: [ens, N, K, aDim]
-            curr_actions_NK = np.tile(curr_actions_NK,(self.ensemble_size, 1, 1, 1))
+            if timestep != 0:
+                # set_trace()
+                ddpg_output = self.get_ddpg_act(o=curr_states_NK, ag='no need', g=goal_tile)
+                curr_actions_NK = ddpg_output.reshape(curr_actions_NK.shape)
 
             #keep track of states for all N sims
             state_list.append(np.copy(curr_states_pastTimestep))

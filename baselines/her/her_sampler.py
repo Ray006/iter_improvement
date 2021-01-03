@@ -15,6 +15,10 @@ def make_sample_her_transitions(replay_strategy, replay_k, reward_fun):
             as many HER replays as regular replays are used)
         reward_fun (function): function to re-compute the reward with substituted goals
     """
+    # set_trace()
+    # replay_k = 5
+
+
     if replay_strategy == 'future':
         future_p = 1 - (1. / (1 + replay_k))
     else:  # 'replay_strategy' == 'none'
