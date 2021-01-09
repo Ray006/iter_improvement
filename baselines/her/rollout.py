@@ -115,12 +115,12 @@ class RolloutWorker:
             ag_new = np.empty((self.rollout_batch_size, self.dims['g']))
             success = np.zeros(self.rollout_batch_size)
 
-            ##### here, use planner
-            if self.mb!=None and self.mb.model_was_learned == True:
-                # set_trace()
-                # if self.T-t <= self.mb.args.horizon:
-                if t >= 20:
-                    u = self.mb.planner.get_action(o, self.g, u)
+            # ##### here, use planner
+            # if self.mb!=None and self.mb.model_was_learned == True:
+            #     # set_trace()
+            #     # if self.T-t <= self.mb.args.horizon:
+            #     if t >= 20:
+            #         u = self.mb.planner.get_action(o, self.g, u)
 
 
 

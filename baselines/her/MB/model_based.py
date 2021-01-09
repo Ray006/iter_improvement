@@ -175,6 +175,7 @@ class MB_class:
         self.model_was_learned = True
         ### get data from the buffer
         rollouts_trainOnPol, rollouts_valOnPol = self.get_rollout()
+        # set_trace()
         #convert (rollouts --> dataset)
         dataset_trainOnPol = self.data_processor.convertRolloutsToDatasets(rollouts_trainOnPol)
         dataset_valOnPol = self.data_processor.convertRolloutsToDatasets(rollouts_valOnPol)

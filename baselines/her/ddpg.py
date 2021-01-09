@@ -109,6 +109,8 @@ class DDPG(object):
         self.grade_GER = grade_GER
         self.err_distance = err_distance
         self.env_name = env_name
+        self.num_step = 0
+        self.dyn_model = None
 
     def _random_action(self, n):
         return np.random.uniform(low=-self.max_u, high=self.max_u, size=(n, self.dimu))
@@ -128,16 +130,12 @@ class DDPG(object):
         actions = self.get_actions(obs['observation'], obs['achieved_goal'], obs['desired_goal'])
         return actions, None, None, None
 
-
+    # #### maxQ test
     # def get_actions(self, o, ag, g, noise_eps=0., random_eps=0., use_target_net=False,
     #                 compute_Q=False):
     #     o, g = self._preprocess_og(o, ag, g)
     #     policy = self.target if use_target_net else self.main
 
-
-    #     set_trace()
-    #     compute_Q = True
-        
     #     # values to compute
     #     vals = [policy.pi_tf]
     #     if compute_Q:
@@ -151,30 +149,35 @@ class DDPG(object):
 
     #     ret = self.sess.run(vals, feed_dict=feed)
 
-    #     for _ in range(10):
-    #         set_trace()
-    #         compute_Q = True
-            
-    #         # values to compute
-    #         vals = [policy.pi_tf]
-    #         if compute_Q:
-    #             vals += [policy.Q_pi_tf]
-    #         # feed
-    #         feed = {
-    #             policy.o_tf: o.reshape(-1, self.dimo),
-    #             policy.g_tf: g.reshape(-1, self.dimg),
-    #             policy.u_tf: np.zeros((o.size // self.dimo, self.dimu), dtype=np.float32)
-    #         }
 
-    #         ret = self.sess.run(vals, feed_dict=feed)
-
-
-
-    #     # action postprocessing
+    #     # self.num_step += 1
+    #     # if self.num_step % 5000 == 0:
+    #     # set_trace()
     #     u = ret[0]
-    #     noise = noise_eps * self.max_u * np.random.randn(*u.shape)  # gaussian noise
-    #     u += noise
-    #     u = np.clip(u, -self.max_u, self.max_u)
+    #     vals = [policy.Q_tf]
+
+    #     num = 200
+    #     noise_eps = 0.3
+
+    #     o_in= np.tile(o,(num,1))
+    #     g_in= np.tile(g,(num,1))
+    #     u_in= np.tile(u,(num,1))
+            
+    #     noise = noise_eps * self.max_u * np.random.randn(*u_in.shape)  # gaussian noise
+    #     u_in += noise
+    #     u_in = np.clip(u_in, -self.max_u, self.max_u)
+    #     u_in[0] = u
+
+    #     feed = {
+    #         policy.o_tf: o_in.reshape(-1, self.dimo),
+    #         policy.g_tf: g_in.reshape(-1, self.dimg),
+    #         policy.u_tf: u_in.reshape(-1, self.dimu),
+    #     }
+    #     ret_ = self.sess.run(vals, feed_dict=feed)
+    #     u = u_in[ret_[0].argmax()].reshape(-1,self.dimu)
+
+
+    #     # set_trace()
     #     u += np.random.binomial(1, random_eps, u.shape[0]).reshape(-1, 1) * (self._random_action(u.shape[0]) - u)  # eps-greedy
     #     if u.shape[0] == 1:
     #         u = u[0]
@@ -186,7 +189,177 @@ class DDPG(object):
     #     else:
     #         return ret
 
-    ### origin
+    # ### disgreement for exploration, V3_1, after discussion
+    # def get_actions(self, o, ag, g, noise_eps=0., random_eps=0., use_target_net=False,
+    #                 compute_Q=False):
+    #     o, g = self._preprocess_og(o, ag, g)
+    #     policy = self.target if use_target_net else self.main
+    #     # values to compute
+    #     vals = [policy.pi_tf]
+    #     if compute_Q:
+    #         vals += [policy.Q_pi_tf]
+    #     # feed
+    #     feed = {
+    #         policy.o_tf: o.reshape(-1, self.dimo),
+    #         policy.g_tf: g.reshape(-1, self.dimg),
+    #         policy.u_tf: np.zeros((o.size // self.dimo, self.dimu), dtype=np.float32)
+    #     }
+    #     ret = self.sess.run(vals, feed_dict=feed)
+
+
+    #     # action postprocessing
+    #     u = ret[0]
+    #     noise = noise_eps * self.max_u * np.random.randn(*u.shape)  # gaussian noise
+    #     u += noise
+    #     u = np.clip(u, -self.max_u, self.max_u)
+
+    #     if np.random.binomial(1, random_eps, u.shape[0])[0] == 1:  ### exploration
+    #         if self.dyn_model!=None:      ### use disagreement
+    #             num = 200
+    #             scale = 1
+
+    #             o_in= np.tile(o,(num,1))
+    #             u_in= np.tile(u,(num,1))
+                    
+    #             noise = scale * self.max_u * np.random.randn(*u_in.shape)  # gaussian noise
+    #             u_in = np.clip(noise, -self.max_u, self.max_u)
+
+    #             # noise = scale * self.max_u * np.random.randn(*u_in.shape)  # gaussian noise
+    #             # u_in += noise
+    #             # u_in = np.clip(u_in, -self.max_u, self.max_u)
+
+    #             # u_in[0] = u
+    #             next_o = self.dyn_model.do_1step_forward_sim(o_in, u_in)
+
+    #             set_trace()
+    #             # normalization
+    #             std = next_o.std(axis=0)
+    #             numer = std - std.min(axis=0)
+    #             denom = std.max(axis=0) - std.min(axis=0)
+    #             norm_std = numer/denom
+    #             norm_std = norm_std.sum(axis=1)
+
+    #             idx = norm_std.argmax()
+    #             u = u_in[idx].reshape(-1,self.dimu)
+
+
+    #             # # normalization   2
+    #             # mins = next_o.min(axis=0)
+    #             # maxs = next_o.max(axis=0)
+    #             # numer = next_o - mins
+    #             # denom = maxs - mins
+    #             # norm_o = numer/denom
+    #             # std_o = norm_o.std(axis=0)
+    #             # std_total_dim = std_o.sum(axis=1)
+
+    #             # idx = std_total_dim.argmax()
+    #             # u = u_in[idx].reshape(-1,self.dimu)
+
+    #             # # normalization  1
+    #             # next_o_shape = next_o.reshape(-1,self.dimo)
+    #             # mins = next_o_shape.min(0)
+    #             # maxs = next_o_shape.max(0)
+    #             # numer = next_o_shape - mins
+    #             # denom = maxs - mins
+    #             # norm_o = numer/denom
+    #             # norm_o_shape = norm_o.reshape(next_o.shape)
+
+    #             # std_o = norm_o_shape.std(axis=0)
+    #             # std_total_dim = std_o.sum(axis=1)
+
+    #             # idx = std_total_dim.argmax()
+    #             # u = u_in[idx].reshape(-1,self.dimu)
+    #         else:
+    #             u += self._random_action(u.shape[0]) - u  # eps-greedy
+    
+    #     if u.shape[0] == 1:
+    #         u = u[0]
+    #     u = u.copy()
+    #     ret[0] = u
+
+    #     if len(ret) == 1:
+    #         return ret[0]
+    #     else:
+    #         return ret
+
+
+    # ### disgreement for exploration, V2
+    # def get_actions(self, o, ag, g, noise_eps=0., random_eps=0., use_target_net=False,
+    #                 compute_Q=False):
+    #     o, g = self._preprocess_og(o, ag, g)
+    #     policy = self.target if use_target_net else self.main
+    #     # values to compute
+    #     vals = [policy.pi_tf]
+    #     if compute_Q:
+    #         vals += [policy.Q_pi_tf]
+    #     # feed
+    #     feed = {
+    #         policy.o_tf: o.reshape(-1, self.dimo),
+    #         policy.g_tf: g.reshape(-1, self.dimg),
+    #         policy.u_tf: np.zeros((o.size // self.dimo, self.dimu), dtype=np.float32)
+    #     }
+    #     ret = Ret |        1.18e+
+    #     # action postprocessing
+    #     u = ret[0]
+    #     noise = noise_eps * self.max_u * np.random.randn(*u.shape)  # gaussian noise
+    #     u += noise
+    #     u = np.clip(u, -self.max_u, self.max_u)
+
+    #     if np.random.binomial(1, random_eps, u.shape[0])[0] == 1:  ### exploration
+    #         if self.dyn_model!=None:      ### use disagreement
+    #             num = 100
+    #             scale = 0.5
+
+    #             o_in= np.tile(o,(num,1))
+    #             u_in= np.tile(u,(num,1))
+                    
+    #             noise = scale * self.max_u * np.random.randn(*u_in.shape)  # gaussian noise
+    #             u_in += noise
+    #             u_in = np.clip(u_in, -self.max_u, self.max_u)
+    #             # u_in[0] = u
+    #             next_o = self.dyn_model.do_1step_forward_sim(o_in, u_in)
+
+    #             # set_trace()
+    #             # normalization
+    #             mins = next_o.min(axis=0)
+    #             maxs = next_o.max(axis=0)
+    #             numer = next_o - mins
+    #             denom = maxs - mins
+    #             norm_o = numer/denom
+    #             std_o = norm_o.std(axis=0)
+    #             std_total_dim = std_o.sum(axis=1)
+
+    #             idx = std_total_dim.argmax()
+    #             u = u_in[idx].reshape(-1,self.dimu)
+
+    #             # # normalization
+    #             # next_o_shape = next_o.reshape(-1,self.dimo)
+    #             # mins = next_o_shape.min(0)
+    #             # maxs = next_o_shape.max(0)
+    #             # numer = next_o_shape - mins
+    #             # denom = maxs - mins
+    #             # norm_o = numer/denom
+    #             # norm_o_shape = norm_o.reshape(next_o.shape)
+
+    #             # std_o = norm_o_shape.std(axis=0)
+    #             # std_total_dim = std_o.sum(axis=1)
+
+    #             # idx = std_total_dim.argmax()
+    #             # u = u_in[idx].reshape(-1,self.dimu)
+    #         else:
+    #             u += self._random_action(u.shape[0]) - u  # eps-greedy
+    
+    #     if u.shape[0] == 1:
+    #         u = u[0]
+    #     u = u.copy()
+    #     ret[0] = u
+
+    #     if len(ret) == 1:
+    #         return ret[0]
+    #     else:
+    #         return ret
+
+    ### disgreement for exploration, V1
     def get_actions(self, o, ag, g, noise_eps=0., random_eps=0., use_target_net=False,
                     compute_Q=False):
         o, g = self._preprocess_og(o, ag, g)
@@ -201,14 +374,51 @@ class DDPG(object):
             policy.g_tf: g.reshape(-1, self.dimg),
             policy.u_tf: np.zeros((o.size // self.dimo, self.dimu), dtype=np.float32)
         }
-
         ret = self.sess.run(vals, feed_dict=feed)
+
+
         # action postprocessing
         u = ret[0]
         noise = noise_eps * self.max_u * np.random.randn(*u.shape)  # gaussian noise
         u += noise
         u = np.clip(u, -self.max_u, self.max_u)
-        u += np.random.binomial(1, random_eps, u.shape[0]).reshape(-1, 1) * (self._random_action(u.shape[0]) - u)  # eps-greedy
+
+        if np.random.binomial(1, random_eps*1.5, u.shape[0])[0] == 1:  ### exploration
+        # if np.random.binomial(1, random_eps, u.shape[0])[0] == 1:  ### exploration
+            if self.dyn_model!=None:      ### use disagreement
+                # num = 200
+                # scale = 1
+                num = 100
+                scale = 0.5
+
+                o_in= np.tile(o,(num,1))
+                u_in= np.tile(u,(num,1))
+                    
+                noise = scale * self.max_u * np.random.randn(*u_in.shape)  # gaussian noise
+                u_in += noise
+                u_in = np.clip(u_in, -self.max_u, self.max_u)
+  
+                # u_in[0] = u
+                next_o = self.dyn_model.do_1step_forward_sim(o_in, u_in)
+
+                # set_trace()
+                # normalization
+                next_o_shape = next_o.reshape(-1,self.dimo)
+                mins = next_o_shape.min(0)
+                maxs = next_o_shape.max(0)
+                numer = next_o_shape - mins
+                denom = maxs - mins
+                norm_o = numer/denom
+                norm_o_shape = norm_o.reshape(next_o.shape)
+
+                std_o = norm_o_shape.std(axis=0)
+                std_total_dim = std_o.sum(axis=1)
+
+                idx = std_total_dim.argmax()
+                u = u_in[idx].reshape(-1,self.dimu)
+            else:
+                u += self._random_action(u.shape[0]) - u  # eps-greedy
+    
         if u.shape[0] == 1:
             u = u[0]
         u = u.copy()
@@ -218,6 +428,43 @@ class DDPG(object):
             return ret[0]
         else:
             return ret
+
+
+
+    # ### origin
+    # def get_actions(self, o, ag, g, noise_eps=0., random_eps=0., use_target_net=False,
+    #                 compute_Q=False):
+    #     o, g = self._preprocess_og(o, ag, g)
+    #     policy = self.target if use_target_net else self.main
+    #     # values to compute
+    #     vals = [policy.pi_tf]
+    #     if compute_Q:
+    #         vals += [policy.Q_pi_tf]
+    #     # feed
+    #     feed = {
+    #         policy.o_tf: o.reshape(-1, self.dimo),
+    #         policy.g_tf: g.reshape(-1, self.dimg),
+    #         policy.u_tf: np.zeros((o.size // self.dimo, self.dimu), dtype=np.float32)
+    #     }
+
+    #     ret = self.sess.run(vals, feed_dict=feed)
+    #     # action postprocessing
+    #     u = ret[0]
+    #     noise = noise_eps * self.max_u * np.random.randn(*u.shape)  # gaussian noise
+    #     u += noise
+    #     u = np.clip(u, -self.max_u, self.max_u)
+
+    #     u += np.random.binomial(1, random_eps, u.shape[0]).reshape(-1, 1) * (self._random_action(u.shape[0]) - u)  # eps-greedy
+        
+    #     if u.shape[0] == 1:
+    #         u = u[0]
+    #     u = u.copy()
+    #     ret[0] = u
+
+    #     if len(ret) == 1:
+    #         return ret[0]
+    #     else:
+    #         return ret
 
     def init_demo_buffer(self, demoDataFile, update_stats=True): #function that initializes the demo buffer
 
@@ -350,11 +597,11 @@ class DDPG(object):
         #### keys(['g', 'o', 'u', 'o_2', 'g_2', 'r'])
         transitions_batch = [transitions[key] for key in self.stage_shapes.keys()]
         
-        # set_trace()#  use agent to interacte with the model here!!!
-        try:
-            transitions_batch = self.model_augmented_data(transitions_batch)
-        except:
-            pass
+        # # set_trace()#  use agent to interacte with the model here!!!
+        # try:
+        #     transitions_batch = self.model_augmented_data(transitions_batch)
+        # except:
+        #     pass
 
         return transitions_batch
 
