@@ -79,8 +79,8 @@ class MB_class:
                     ## arch
                     'num_fc_layers': [2],
                     'depth_fc_layers': [400],
-                    'ensemble_size': [3],
-                    # 'ensemble_size': [5],
+                    # 'ensemble_size': [3],
+                    'ensemble_size': [5],
                     'K': [1],
                     ## model training
                     'warmstart_training': [False],

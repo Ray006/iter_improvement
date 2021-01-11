@@ -109,7 +109,7 @@ def train(*, policy, rollout_worker, evaluator,
 
         policy.save(save_path)
 
-        MB.run_job()
+        # MB.run_job()
 
         # test
         evaluator.clear_history()
@@ -212,6 +212,7 @@ def learn(*, network, env, total_timesteps,
 
 
     logger.warn()
+    logger.warn('--- seed:', seed)
     logger.warn('--- n_KER:', n_KER)
     logger.warn('--- n_GER:', n_GER)
     logger.warn('--- dyn_KER:', dynamic_KER)
@@ -242,8 +243,8 @@ def learn(*, network, env, total_timesteps,
     policy = config.configure_ddpg(dims=dims, params=params, clip_return=clip_return,
                                     n_GER=n_GER, grade_GER=grade_GER, err_distance=err_distance,env_name=env_name)
     
-    # set_trace()
-    MB = MB_class(buffer_size=500000, dims=dims, policy=policy)
+    # # set_trace()
+    MB = MB_class(buffer_size=1000000, dims=dims, policy=policy)
     
     if load_path is not None:
         tf_util.load_variables(load_path)
