@@ -109,11 +109,12 @@ def train(*, policy, rollout_worker, evaluator,
 
         policy.save(save_path)
 
-        # MB.run_job()
+        MB.run_job()
 
         # test
         evaluator.clear_history()
         for _ in range(n_test_rollouts):
+            # set_trace()
             evaluator.generate_rollouts()
 
         # set_trace()

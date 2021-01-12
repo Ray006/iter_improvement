@@ -101,12 +101,16 @@ class RolloutWorker:
                 random_eps=self.random_eps if not self.exploit else 0.,
                 use_target_net=self.use_target_net)
 
+
             if self.compute_Q:
-                u, Q = policy_output
+                # set_trace()
+                u_Q, exp = policy_output
+                u, Q = u_Q
                 Qs.append(Q)
             else:
-                u = policy_output
+                u, exp = policy_output
 
+                # set_trace()
             if u.ndim == 1:
                 # The non-batched case should still have a reasonable shape.
                 u = u.reshape(1, -1)
@@ -115,12 +119,12 @@ class RolloutWorker:
             ag_new = np.empty((self.rollout_batch_size, self.dims['g']))
             success = np.zeros(self.rollout_batch_size)
 
-            # ##### here, use planner
-            # if self.mb!=None and self.mb.model_was_learned == True:
-            #     # set_trace()
-            #     # if self.T-t <= self.mb.args.horizon:
-            #     if t >= 20:
-            #         u = self.mb.planner.get_action(o, self.g, u)
+            ##### here, use planner
+            if self.mb.model_was_learned == True and exp!=1:
+                # set_trace()
+                # if self.T-t <= self.mb.args.horizon:
+                if t >= 10:
+                    u = self.mb.planner.get_action(o, self.g, u)
 
 
 

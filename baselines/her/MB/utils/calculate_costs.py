@@ -15,17 +15,17 @@
 import numpy as np
 from ipdb import set_trace
 
-def cost_per_step(pt, prev_pt, costs, goal):
+def cost_per_step(pt, prev_pt, costs, goal, q_val):
     
     ### assume that the reward function is known
     new_ag = pt[:,3:6]         
     d = np.linalg.norm(new_ag - goal, axis=-1)
     step_rews = -(d > 0.05).astype(np.float32)
 
-    costs -= step_rews
+    costs -= step_rews + 0.01*q_val[:,0]
     return costs
 
-def calculate_costs(resulting_states_list, goal):
+def calculate_costs(resulting_states_list, resulting_Q_list, goal):
     """Rank various predicted trajectories (by cost)
 
     Args:
@@ -65,6 +65,17 @@ def calculate_costs(resulting_states_list, goal):
         resulting_states.append(all_per_timestep)
     #resulting_states is now [H+1, ensSize*N, statesize]
 
+    #resulting_Q_list is [ensSize, H+1, N, Qsize]
+    resulting_Q = []
+    for timestep in range(len(resulting_Q_list[0])): # loops over H+1
+        all_per_timestep = []
+        for entry in resulting_Q_list: # loops over ensSize
+            all_per_timestep.append(entry[timestep])
+        all_per_timestep = np.concatenate(all_per_timestep)  #[ensSize*N, Qsize]
+        resulting_Q.append(all_per_timestep)
+    #resulting_Q is now [H+1, ensSize*N, Qsize]
+
+
     ###########################################################
     ## calculate costs associated with each predicted trajectory
     ######## treat each traj from each ensemble as just separate trajs
@@ -80,7 +91,8 @@ def calculate_costs(resulting_states_list, goal):
 
         #array of "current datapoint" [(ensemble_size*N) x state]
         pt = resulting_states[pt_number + 1]
-        costs = cost_per_step(pt, prev_pt, costs, goal)
+        q_val = resulting_Q[pt_number]
+        costs = cost_per_step(pt, prev_pt, costs, goal, q_val)
         #update
         prev_pt = np.copy(pt)
 

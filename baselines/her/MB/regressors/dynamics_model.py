@@ -43,6 +43,7 @@ class Dyn_Model:
         self.normalization_data = normalization_data
         self.sess = policy.sess
         self.get_ddpg_act = policy.get_actions
+        self.getQval = policy.get_Q_value_for_mb_only
 
         # params
         self.params = params
@@ -346,6 +347,7 @@ class Dyn_Model:
     def do_forward_sim(self, states, goal, actions):
 
         state_list = []
+        Q_list = []
         horizon = self.params.horizon
         N = self.params.num_control_samples
 
@@ -360,20 +362,27 @@ class Dyn_Model:
         curr_actions_NK = np.swapaxes(actions_toPerform, 1, 2)
         
         # self.get_ddpg_act()
+        # set_trace()
+        Q = self.getQval(o=curr_states_NK, ag='no need', g=goal_tile, u=curr_actions_NK)
+        curr_Q_NK = Q[0].reshape(self.ensemble_size, N, 1, 1)
 
         #advance all N sims, one timestep at a time
         for timestep in range(horizon):
 
-            #curr_states_pastTimestep: [ens, N, sDim]
-            curr_states_pastTimestep = curr_states_NK[:, :,-1, :]
-
             if timestep != 0:
                 # set_trace()
-                ddpg_output = self.get_ddpg_act(o=curr_states_NK, ag='no need', g=goal_tile)
+                ddpg_output_Q, _= self.get_ddpg_act(o=curr_states_NK, ag='no need', g=goal_tile, compute_Q=True)
+                ddpg_output, Q = ddpg_output_Q
                 curr_actions_NK = ddpg_output.reshape(curr_actions_NK.shape)
+                curr_Q_NK = Q.reshape(self.ensemble_size, N, 1, 1)
+
+            #curr_states_pastTimestep: [ens, N, sDim]
+            curr_states_pastTimestep = curr_states_NK[:, :,-1, :]
+            curr_Q_pastTimestep = curr_Q_NK[:, :,-1, :]
 
             #keep track of states for all N sims
             state_list.append(np.copy(curr_states_pastTimestep))
+            Q_list.append(np.copy(curr_Q_pastTimestep))
 
             #make [N x (state,action)] array to pass into NN
             states_preprocessed = np.nan_to_num(
@@ -405,7 +414,7 @@ class Dyn_Model:
 
         #return a list of length = horizon+1... each one has N entries, where each entry is (sDim,)
         state_list.append(np.copy(curr_states_pastTimestep))
-        return state_list
+        return state_list, Q_list
 
     #############################################################
     ### perform multistep prediction

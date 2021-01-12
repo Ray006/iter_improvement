@@ -91,15 +91,16 @@ class MPPI(object):
         #################################################
         ### Get result of executing those candidate action sequences
         #################################################
-        resulting_states_list = self.dyn_models.do_forward_sim(curr_state, goal, first_acts)
+        resulting_states_list, resulting_Q_list = self.dyn_models.do_forward_sim(curr_state, goal, first_acts)
         resulting_states_list = np.swapaxes(resulting_states_list, 0,1)  #[ensSize, horizon+1, N, statesize]
+        resulting_Q_list = np.swapaxes(resulting_Q_list, 0,1)  #[ensSize, horizon+1, N, statesize]
 
         ############################
         ### evaluate the predicted trajectories
         ############################
 
         # calculate costs [N,]
-        costs, std_costs = calculate_costs(resulting_states_list, goal)
+        costs, std_costs = calculate_costs(resulting_states_list, resulting_Q_list, goal)
 
         if (costs == costs.min()).all():
             selected_action = act_ddpg
